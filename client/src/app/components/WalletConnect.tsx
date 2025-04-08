@@ -1,14 +1,12 @@
 'use client'
-
-// app/page.tsx
-import type { NextPage } from 'next'
 import { ConnectButton } from 'thirdweb/react'
 import { client } from '@/lib/client'
 import { generatePayload, isLoggedIn, login, logout } from '@/actions/login' // we'll create this file in the next section
 
-const Page = () => {
+const WalletConnect = () => {
   return (
     <ConnectButton
+      theme="light"
       client={client}
       auth={{
         isLoggedIn: async (address) => {
@@ -29,4 +27,4 @@ const Page = () => {
   )
 }
 
-export default Page
+export default WalletConnect
