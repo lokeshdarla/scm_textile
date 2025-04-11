@@ -26,5 +26,12 @@ module.exports = {
       chainId: 1337,
     },
   },
+
+  paths: {
+    artifacts: "./artifacts-zk",
+    cache: "./cache-zk",
+    sources: "./contracts",
+    tests: "./test",
+  },
 };
 
