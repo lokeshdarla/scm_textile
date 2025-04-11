@@ -8,13 +8,15 @@ import { prepareContractCall } from 'thirdweb'
 import { contract, client } from '@/lib/client'
 import { useActiveAccount, useSendTransaction, useReadContract } from 'thirdweb/react'
 import { useRouter } from 'next/navigation'
-import { Loader2, UserCircle2, Key, ShieldCheck } from 'lucide-react'
+import { Loader2, UserCircle2, Key, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { ConnectButton } from 'thirdweb/react'
 import { inAppWallet, createWallet } from 'thirdweb/wallets'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { useLoading } from '@/components/providers/loading-provider'
+import Link from 'next/link'
 
 enum Role {
   FARMER = 'FARMER',
@@ -27,11 +29,11 @@ enum Role {
 const wallets = [
   inAppWallet({
     auth: {
-      options: ['google'],
+      options: [],
     },
   }),
   createWallet('io.metamask'),
-  createWallet('com.coinbase.wallet'),
+  // createWallet('com.coinbase.wallet'),
 ]
 
 export default function Page() {
@@ -42,6 +44,7 @@ export default function Page() {
   const [showRegistration, setShowRegistration] = useState(false)
   const account = useActiveAccount()
   const router = useRouter()
+  const { showLoading, hideLoading } = useLoading()
 
   const { data: userId } = useReadContract({
     contract,
@@ -97,15 +100,23 @@ export default function Page() {
 
   const handleRoleSelect = async (role: Role) => {
     setSelectedRole(role)
+  }
+
+  const handleContinue = async () => {
+    if (!selectedRole) return
+
+    showLoading('Verifying your account...')
 
     // Wait a tick for state to update
     setTimeout(() => {
       // If user details are already fetched, verify
       if (userDetails && isUserDetailsFetched) {
         verifyUserRole()
+        hideLoading()
       } else {
         // Otherwise, show registration after verifying userId
         setShowRegistration(true)
+        hideLoading()
       }
     }, 200)
   }
@@ -119,7 +130,7 @@ export default function Page() {
     }
 
     try {
-      setIsRegisteringUser(true)
+      showLoading('Registering your account...')
       const transaction = prepareContractCall({
         contract,
         method: 'function registerUser(string _name, string _role) returns (uint256)',
@@ -141,7 +152,7 @@ export default function Page() {
         description: 'There was an error creating your account',
       })
     } finally {
-      setIsRegisteringUser(false)
+      hideLoading()
     }
   }
 
@@ -155,21 +166,29 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md shadow-lg border-0">
-        <CardHeader className="space-y-1 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-lg pb-6">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-lg border border-border">
+        <CardHeader className="space-y-1 bg-primary rounded-t-lg pb-6">
           <div className="mx-auto bg-white p-3 rounded-full shadow-sm mb-3">
-            <ShieldCheck className="h-8 w-8 text-blue-600" />
+            <ShieldCheck className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold text-center text-gray-800">Supply Chain Auth</CardTitle>
-          <CardDescription className="text-center text-gray-600">Secure access to the blockchain system</CardDescription>
+          <CardTitle className="text-2xl font-bold text-center text-primary-foreground">Supply Chain Auth</CardTitle>
+          <CardDescription className="text-center text-muted-foreground">Secure access to the blockchain system</CardDescription>
         </CardHeader>
 
         <CardContent className="p-6 space-y-5">
+          {/* Back to Home */}
+          <div className="mb-4">
+            <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-primary">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Home
+            </Link>
+          </div>
+
           {/* Step 1: Connect Wallet */}
           <div className="flex flex-col space-y-2">
             <Label htmlFor="wallet" className="text-sm font-medium flex items-center">
-              <Key className="h-4 w-4 mr-2 text-gray-500" />
+              <Key className="h-4 w-4 mr-2 text-primary" />
               Connect Wallet
             </Label>
             <div className="flex justify-center mt-1">
@@ -187,8 +206,8 @@ export default function Page() {
           </div>
 
           {account && (
-            <div className="text-center text-sm bg-gray-50 rounded-md p-2 border-0">
-              <span className="text-gray-500">Connected:</span> {account.address.substring(0, 6)}...
+            <div className="text-center text-sm bg-muted/30 rounded-md p-2 border border-border">
+              <span className="text-muted-foreground">Connected:</span> {account.address.substring(0, 6)}...
               {account.address.substring(account.address.length - 4)}
             </div>
           )}
@@ -199,11 +218,11 @@ export default function Page() {
               <Separator className="my-3" />
               <div className="space-y-2">
                 <Label htmlFor="role" className="text-sm font-medium flex items-center">
-                  <UserCircle2 className="h-4 w-4 mr-2 text-gray-500" />
+                  <UserCircle2 className="h-4 w-4 mr-2 text-primary" />
                   Select Your Role
                 </Label>
                 <Select value={selectedRole || undefined} onValueChange={(value) => setSelectedRole(value as Role)}>
-                  <SelectTrigger id="role" className="h-10 focus:outline-none focus:ring-0 border-0 bg-gray-50">
+                  <SelectTrigger id="role" className="h-10 focus:outline-none focus:ring-0 border border-input bg-background">
                     <SelectValue placeholder="Choose your role" />
                   </SelectTrigger>
                   <SelectContent className="w-full">
@@ -217,19 +236,11 @@ export default function Page() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button onClick={() => handleRoleSelect(selectedRole as Role)} className="w-full mt-2 focus:outline-none focus:ring-0" disabled={!selectedRole} variant="secondary">
+                <Button onClick={() => handleContinue()} className="w-full mt-2 focus:outline-none focus:ring-0" disabled={!selectedRole} variant="default">
                   Continue with {selectedRole}
                 </Button>
               </div>
             </>
-          )}
-
-          {/* Step 3: Loading State */}
-          {isFetchingLoading && (
-            <div className="flex justify-center gap-2 items-center py-4">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-              <p className="text-sm font-medium">Verifying your account...</p>
-            </div>
           )}
 
           {/* Step 4: Registration Form (if needed) */}
@@ -237,7 +248,7 @@ export default function Page() {
             <>
               <Separator className="my-3" />
               <div className="space-y-4">
-                <div className="rounded-md bg-blue-50 p-3 text-center text-blue-800 text-sm">
+                <div className="rounded-md bg-primary/10 p-3 text-center text-primary text-sm">
                   <p className="font-medium">New user registration</p>
                   <p className="text-xs mt-1">Complete your profile to continue as {selectedRole}</p>
                 </div>
@@ -246,25 +257,29 @@ export default function Page() {
                   <Label htmlFor="name" className="text-sm font-medium">
                     Full Name
                   </Label>
-                  <Input id="name" placeholder="Enter your full name" value={name} onChange={(e) => setName(e.target.value)} className="h-10 focus:outline-none focus:ring-0 border-0 bg-gray-50" />
+                  <Input
+                    id="name"
+                    placeholder="Enter your full name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-10 focus:outline-none focus:ring-0 border border-input bg-background"
+                  />
                 </div>
 
-                <Button onClick={registerUser} className="w-full focus:outline-none focus:ring-0" disabled={isRegisteringUser || !name} variant="default">
+                <Button onClick={registerUser} className="w-full mt-2" disabled={!name || isRegisteringUser}>
                   {isRegisteringUser ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Creating account...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Registering...
                     </>
                   ) : (
-                    'Register as ' + selectedRole
+                    'Complete Registration'
                   )}
                 </Button>
               </div>
             </>
           )}
         </CardContent>
-
-        <CardFooter className="px-6 py-4 bg-gray-50 text-center text-xs text-gray-500 rounded-b-lg">Secure blockchain authentication system for supply chain management</CardFooter>
       </Card>
     </div>
   )
