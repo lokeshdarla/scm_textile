@@ -1,42 +1,39 @@
+'use client'
+import React from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { DataTable } from './_components/data-table'
-export default function Page() {
+
+export default function FarmerOverview() {
   return (
-    <div className=" p-6 space-y-4">
-      <Tabs defaultValue="account" className="w-full">
-        <TabsList className="grid  grid-cols-2 w-[400px]">
-          <TabsTrigger value="add-raw-material">Add Raw Material</TabsTrigger>
-          <TabsTrigger value="view-transactions">View Transactions</TabsTrigger>
-        </TabsList>
-        <TabsContent value="add-raw-material">
-          <Card className="my-4">
-            <CardHeader>
-              <CardTitle>Account</CardTitle>
-              <CardDescription>Make changes to your account here. Click save when you're done.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="space-y-1">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" defaultValue="Pedro Duarte" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="username">Username</Label>
-                <Input id="username" defaultValue="@peduarte" />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button>Save changes</Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        <TabsContent value="view-transactions">
-          <DataTable />
-        </TabsContent>
-      </Tabs>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-green-100">
+        <h2 className="text-xl font-semibold mb-4 text-green-800">Recent Orders</h2>
+        <p className="text-gray-600">You have 5 pending orders</p>
+        <div className="mt-4">
+          <Button variant="link" className="text-green-600 hover:text-green-800 p-0">
+            View all orders
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-green-100">
+        <h2 className="text-xl font-semibold mb-4 text-green-800">Products</h2>
+        <p className="text-gray-600">You have 12 active products</p>
+        <div className="mt-4">
+          <Button variant="link" className="text-green-600 hover:text-green-800 p-0">
+            Manage products
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-green-100">
+        <h2 className="text-xl font-semibold mb-4 text-green-800">Analytics</h2>
+        <p className="text-gray-600">Sales increased by 15% this month</p>
+        <div className="mt-4">
+          <Button variant="link" className="text-green-600 hover:text-green-800 p-0">
+            View detailed analytics
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
