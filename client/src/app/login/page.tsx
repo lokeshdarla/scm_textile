@@ -24,6 +24,7 @@ enum Role {
   MILLS = 'MILLS',
   DISTRIBUTOR = 'DISTRIBUTOR',
   RETAILER = 'RETAILER',
+  CUSTOMER = 'CUSTOMER',
 }
 
 const wallets = [
@@ -163,14 +164,15 @@ export default function Page() {
     MILLS: '⚙️',
     DISTRIBUTOR: '🚚',
     RETAILER: '🏪',
+    CUSTOMER: '🛒',
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md shadow-lg border border-border">
-        <CardHeader className="space-y-1 bg-primary rounded-t-lg pb-6">
-          <div className="mx-auto bg-white p-3 rounded-full shadow-sm mb-3">
-            <ShieldCheck className="h-8 w-8 text-primary" />
+    <div className="flex items-center justify-center min-h-screen p-4 bg-background">
+      <Card className="w-full max-w-md border shadow-lg border-border">
+        <CardHeader className="pb-6 space-y-1 rounded-t-lg bg-primary">
+          <div className="p-3 mx-auto mb-3 bg-white rounded-full shadow-sm">
+            <ShieldCheck className="w-8 h-8 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-primary-foreground">Supply Chain Auth</CardTitle>
           <CardDescription className="text-center text-muted-foreground">Secure access to the blockchain system</CardDescription>
@@ -180,15 +182,15 @@ export default function Page() {
           {/* Back to Home */}
           <div className="mb-4">
             <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-primary">
-              <ArrowLeft className="h-4 w-4 mr-1" />
+              <ArrowLeft className="w-4 h-4 mr-1" />
               Back to Home
             </Link>
           </div>
 
           {/* Step 1: Connect Wallet */}
           <div className="flex flex-col space-y-2">
-            <Label htmlFor="wallet" className="text-sm font-medium flex items-center">
-              <Key className="h-4 w-4 mr-2 text-primary" />
+            <Label htmlFor="wallet" className="flex items-center text-sm font-medium">
+              <Key className="w-4 h-4 mr-2 text-primary" />
               Connect Wallet
             </Label>
             <div className="flex justify-center mt-1">
@@ -206,7 +208,7 @@ export default function Page() {
           </div>
 
           {account && (
-            <div className="text-center text-sm bg-muted/30 rounded-md p-2 border border-border">
+            <div className="p-2 text-sm text-center border rounded-md bg-muted/30 border-border">
               <span className="text-muted-foreground">Connected:</span> {account.address.substring(0, 6)}...
               {account.address.substring(account.address.length - 4)}
             </div>
@@ -217,12 +219,12 @@ export default function Page() {
             <>
               <Separator className="my-3" />
               <div className="space-y-2">
-                <Label htmlFor="role" className="text-sm font-medium flex items-center">
-                  <UserCircle2 className="h-4 w-4 mr-2 text-primary" />
+                <Label htmlFor="role" className="flex items-center text-sm font-medium">
+                  <UserCircle2 className="w-4 h-4 mr-2 text-primary" />
                   Select Your Role
                 </Label>
                 <Select value={selectedRole || undefined} onValueChange={(value) => setSelectedRole(value as Role)}>
-                  <SelectTrigger id="role" className="h-10 focus:outline-none focus:ring-0 border border-input bg-background">
+                  <SelectTrigger id="role" className="h-10 border focus:outline-none focus:ring-0 border-input bg-background">
                     <SelectValue placeholder="Choose your role" />
                   </SelectTrigger>
                   <SelectContent className="w-full">
@@ -248,9 +250,9 @@ export default function Page() {
             <>
               <Separator className="my-3" />
               <div className="space-y-4">
-                <div className="rounded-md bg-primary/10 p-3 text-center text-primary text-sm">
+                <div className="p-3 text-sm text-center rounded-md bg-primary/10 text-primary">
                   <p className="font-medium">New user registration</p>
-                  <p className="text-xs mt-1">Complete your profile to continue as {selectedRole}</p>
+                  <p className="mt-1 text-xs">Complete your profile to continue as {selectedRole}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -262,14 +264,14 @@ export default function Page() {
                     placeholder="Enter your full name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="h-10 focus:outline-none focus:ring-0 border border-input bg-background"
+                    className="h-10 border focus:outline-none focus:ring-0 border-input bg-background"
                   />
                 </div>
 
                 <Button onClick={registerUser} className="w-full mt-2" disabled={!name || isRegisteringUser}>
                   {isRegisteringUser ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Registering...
                     </>
                   ) : (

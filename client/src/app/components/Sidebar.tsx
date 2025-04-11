@@ -36,17 +36,17 @@ const Sidebar = ({ navItems, className }: SidebarProps) => {
   return (
     <div className={cn('flex flex-col h-screen border-r shadow-lg transition-all duration-300 relative', 'bg-primary', collapsed ? 'w-20' : 'w-64', className)}>
       {/* Logo area */}
-      <div className="p-4 flex justify-center items-center border-b border-primary-foreground/20 bg-primary-foreground/10 h-20">
+      <div className="flex items-center justify-center h-20 p-4 border-b border-primary-foreground/20 bg-primary-foreground/10">
         {collapsed ? (
-          <div className="w-10 h-10 relative flex items-center justify-center bg-primary-foreground/10 rounded-full p-2">
-            <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+          <div className="relative flex items-center justify-center w-10 h-10 p-2 rounded-full bg-primary-foreground/10">
+            <ShieldCheck className="w-6 h-6 text-primary-foreground" />
           </div>
         ) : (
           <div className="flex items-center space-x-2">
-            <div className="bg-primary-foreground/10 rounded-full p-2">
-              <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+            <div className="p-2 rounded-full bg-primary-foreground/10">
+              <ShieldCheck className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="text-primary-foreground font-semibold text-lg">Supply Chain</span>
+            <span className="text-lg font-semibold text-primary-foreground">TextileChain</span>
           </div>
         )}
       </div>
@@ -100,7 +100,7 @@ const Sidebar = ({ navItems, className }: SidebarProps) => {
                 <Button
                   size="icon"
                   onClick={() => setLogoutDialogOpen(true)}
-                  className="w-full aspect-square bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border border-primary-foreground/10"
+                  className="w-full border aspect-square bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/10"
                 >
                   <LogOut size={16} />
                 </Button>
@@ -110,7 +110,7 @@ const Sidebar = ({ navItems, className }: SidebarProps) => {
           </TooltipProvider>
         ) : (
           <Button
-            className="w-full group bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border border-primary-foreground/10"
+            className="w-full border group bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/10"
             onClick={() => setLogoutDialogOpen(true)}
           >
             <LogOut size={16} className="mr-2" />
@@ -121,16 +121,16 @@ const Sidebar = ({ navItems, className }: SidebarProps) => {
 
       {/* Logout confirmation dialog */}
       <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
-        <DialogContent className="bg-background max-w-sm rounded-xl shadow-lg border border-border">
+        <DialogContent className="max-w-sm border shadow-lg bg-background rounded-xl border-border">
           <DialogHeader>
-            <DialogTitle className="text-primary text-xl">Confirm Logout</DialogTitle>
+            <DialogTitle className="text-xl text-primary">Confirm Logout</DialogTitle>
             <DialogDescription className="text-muted-foreground">Are you sure you want to log out of your account?</DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex gap-3 sm:justify-end mt-4">
+          <DialogFooter className="flex gap-3 mt-4 sm:justify-end">
             <Button variant="outline" onClick={() => setLogoutDialogOpen(false)} className="border-border text-muted-foreground hover:border-primary/20 hover:text-primary hover:bg-primary/5">
               Cancel
             </Button>
-            <Button onClick={handleLogout} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">
+            <Button onClick={handleLogout} className="shadow-md bg-primary hover:bg-primary/90 text-primary-foreground">
               <LogOut size={16} className="mr-2" />
               Logout
             </Button>

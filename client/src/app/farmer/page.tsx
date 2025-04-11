@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { prepareContractCall } from 'thirdweb'
 import { contract } from '@/lib/client'
+import { useRouter } from 'next/navigation'
 
 // Define the RawMaterial type based on the smart contract struct
 interface RawMaterial {
@@ -97,6 +98,18 @@ export default function FarmerDashboard() {
   const account = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
+  const activeAccount = useActiveAccount()
+  const router = useRouter()
+  useEffect(() => {
+    if (!activeAccount?.address) {
+      toast.error('No wallet connected', {
+        description: 'Please connect your wallet to access the dashboard',
+        duration: 5000,
+      })
+      router.push('/login')
+      return
+    }
+  }, [activeAccount])
 
   // Simulate loading data
   useEffect(() => {
@@ -187,53 +200,53 @@ export default function FarmerDashboard() {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
       <div className="p-6 pb-0">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Farmer Dashboard</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage your raw materials and track sales</p>
+            <p className="mt-1 text-sm text-gray-500">Manage your raw materials and track sales</p>
           </div>
           <Button onClick={() => setAddMaterialDialogOpen(true)} className="bg-primary hover:bg-primary/90">
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="w-4 h-4 mr-2" />
             Add Raw Material
           </Button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden px-6 pb-6">
-        <Card className="h-full flex flex-col border-0 shadow-sm">
+      <div className="flex-1 px-6 pb-6 overflow-hidden">
+        <Card className="flex flex-col h-full border-0 shadow-sm">
           <CardHeader className="pb-4 space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-xl text-gray-900">Raw Materials</CardTitle>
-                <CardDescription className="text-sm text-gray-500 mt-1">View and manage all your raw materials in the supply chain</CardDescription>
+                <CardDescription className="mt-1 text-sm text-gray-500">View and manage all your raw materials in the supply chain</CardDescription>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
                 <Input
                   placeholder="Search by material type or location..."
-                  className="pl-10 bg-white border-gray-200 h-10 text-sm placeholder:text-gray-400"
+                  className="h-10 pl-10 text-sm bg-white border-gray-200 placeholder:text-gray-400"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 overflow-hidden p-0">
+          <CardContent className="flex-1 p-0 overflow-hidden">
             {isLoading ? (
-              <div className="flex justify-center items-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="flex items-center justify-center h-full">
+                <div className="w-8 h-8 border-b-2 rounded-full animate-spin border-primary"></div>
                 <span className="ml-2 text-gray-500">Loading materials...</span>
               </div>
             ) : filteredMaterials.length === 0 ? (
-              <div className="text-center py-12">
-                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <div className="py-12 text-center">
+                <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                 <h3 className="text-lg font-medium text-gray-900">No raw materials found</h3>
-                <p className="text-sm text-gray-500 mt-1">Add your first raw material to get started</p>
+                <p className="mt-1 text-sm text-gray-500">Add your first raw material to get started</p>
               </div>
             ) : (
-              <div className="overflow-auto h-full">
+              <div className="h-full overflow-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-gray-50/80 backdrop-blur supports-[backdrop-filter]:bg-gray-50/60">
                     <TableRow className="border-b border-gray-200">
@@ -248,7 +261,7 @@ export default function FarmerDashboard() {
                   </TableHeader>
                   <TableBody>
                     {filteredMaterials.map((material) => (
-                      <TableRow key={material.id.toString()} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                      <TableRow key={material.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
                         <TableCell className="p-4 text-sm font-medium text-gray-900">#{material.id.toString()}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{material.materialType}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{material.quantity.toString()}</TableCell>
@@ -268,7 +281,7 @@ export default function FarmerDashboard() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => window.open(getExplorerUrl(material.transactionHash!), '_blank')}
-                                className="h-8 border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                                className="h-8 text-gray-600 border-gray-200 hover:text-gray-900 hover:border-gray-300"
                               >
                                 <ExternalLink className="h-3.5 w-3.5 mr-1" />
                                 View
@@ -278,7 +291,7 @@ export default function FarmerDashboard() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                                className="h-8 text-gray-600 border-gray-200 hover:text-gray-900 hover:border-gray-300"
                                 onClick={() =>
                                   toast.info('Buyer Information', {
                                     description: `Sold to: ${material.buyer}`,
@@ -305,25 +318,25 @@ export default function FarmerDashboard() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-gray-900">Add New Raw Material</DialogTitle>
-            <DialogDescription className="text-sm text-gray-500 mt-1">Enter the details of your raw material to add it to the blockchain</DialogDescription>
+            <DialogDescription className="mt-1 text-sm text-gray-500">Enter the details of your raw material to add it to the blockchain</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddMaterial}>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="materialType" className="text-right text-sm text-gray-500">
+              <div className="grid items-center grid-cols-4 gap-4">
+                <Label htmlFor="materialType" className="text-sm text-right text-gray-500">
                   Type
                 </Label>
                 <Input
                   id="materialType"
                   value={formData.materialType}
                   onChange={(e) => setFormData({ ...formData, materialType: e.target.value })}
-                  className="col-span-3 h-10 border-gray-200"
+                  className="h-10 col-span-3 border-gray-200"
                   placeholder="Cotton, Wool, etc."
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="quantity" className="text-right text-sm text-gray-500">
+              <div className="grid items-center grid-cols-4 gap-4">
+                <Label htmlFor="quantity" className="text-sm text-right text-gray-500">
                   Quantity
                 </Label>
                 <Input
@@ -331,13 +344,13 @@ export default function FarmerDashboard() {
                   type="number"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  className="col-span-3 h-10 border-gray-200"
+                  className="h-10 col-span-3 border-gray-200"
                   placeholder="100"
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="price" className="text-right text-sm text-gray-500">
+              <div className="grid items-center grid-cols-4 gap-4">
+                <Label htmlFor="price" className="text-sm text-right text-gray-500">
                   Price (ETH)
                 </Label>
                 <Input
@@ -346,20 +359,20 @@ export default function FarmerDashboard() {
                   step="0.001"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="col-span-3 h-10 border-gray-200"
+                  className="h-10 col-span-3 border-gray-200"
                   placeholder="0.5"
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="location" className="text-right text-sm text-gray-500">
+              <div className="grid items-center grid-cols-4 gap-4">
+                <Label htmlFor="location" className="text-sm text-right text-gray-500">
                   Location
                 </Label>
                 <Input
                   id="location"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="col-span-3 h-10 border-gray-200"
+                  className="h-10 col-span-3 border-gray-200"
                   placeholder="Farm location"
                   required
                 />
