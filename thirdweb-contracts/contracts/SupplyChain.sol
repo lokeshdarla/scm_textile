@@ -11,12 +11,14 @@ contract SupplyChainPhase1 {
 
   address private admin;
 
+  uint256 private _userCounter;
   uint256 private _rawMaterialIdCounter;
   uint256 private _fabricIdCounter;
   uint256 private _productIdCounter;
   uint256 private _millIdCounter;
   uint256 private _farmerIdCounter;
   uint256 private _manufacturerIdCounter;
+  uint256 private _transactionId;
 
     struct RawMaterial {
       uint256 id;
@@ -50,10 +52,33 @@ contract SupplyChainPhase1 {
 
     struct User {
       uint256 id;
+      uint256 userCounter;
       string name;
       UserRole role;
       string _role;
       string location;
+    }
+
+    struct Transaction {
+      uint256 id;
+      string transactionHash;
+      uint256 userId;
+      address from;
+      address to;
+      uint256 amount;
+      uint256 timestamp;
+    }
+
+    struct Payment {
+      uint256 id;
+      uint256 userId;
+      uint256 amount;
+      address from;
+      address to;
+      string fromRole;
+      string toRole;
+      uint256 timestamp;
+      string status;
     }
 
     mapping(uint256 => RawMaterial) private rawMaterials;
@@ -71,11 +96,23 @@ contract SupplyChainPhase1 {
     mapping(uint256 => address) private MillIdToAddress;
     mapping(uint256 => address) private ManufacturerIdToAddress;
 
+    mapping(uint256 => Transaction) private transactions;
+    mapping(uint256 => Transaction[]) private farmerTransactions;
+    mapping(uint256 => Transaction[]) private millTransactions;
+    mapping(uint256 => Transaction[]) private manufacturerTransactions;
+
     event RawMaterialAdded(uint256 indexed materialId, string materialType);
     event UserRegistered(uint256 indexed userId, address indexed userAddress, string name, UserRole role, string location);
     event FabricAdded(uint256 indexed fabricId, uint256 rawMaterialId, uint256 quantity, string location);
     event ProductAdded(uint256 indexed productId, uint256 fabricId, string productType, uint256 quantity, string location);
 
+    event TransactionRecorded(uint256 indexed transactionId, address indexed from, address indexed to, uint256 amount, uint256 timestamp, string status);
+
+
+
+
+
+  // modifiers
     modifier onlyNewUser() {
       require(userDetails[msg.sender].id ==0 , "user already registered");
       _;
@@ -109,6 +146,113 @@ contract SupplyChainPhase1 {
         }
     }
 
+
+    // payments
+
+    receive() external payable {}
+
+    fallback() external payable {}
+
+    function getBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function sendEther(address payable recipient, uint256 amountInWei) public {
+
+        (bool sent, ) = recipient.call{value: amountInWei}("");
+        require(sent, "Failed to send Ether");
+    }
+
+    function getBuyerDetails(uint256 transactionId) external view returns (User memory user)
+    {
+      Transaction memory currentTransaction = transactions[transactionId];
+      user = userDetails[currentTransaction.to];
+      return user;
+    }
+
+    // function sendEther(address payable _to, uint256 amountInWei) external payable {
+    //     require(msg.value >= amountInWei, "Insufficient ETH sent with transaction");
+    //     (bool success, ) = _to.call{value: amountInWei}("");
+    //     require(success, "Transfer failed");
+    //     // emit EtherSent(msg.sender, _to, amountInWei);
+    // }
+
+    // transactions
+    function recordTransaction(
+      address _from,
+      address _to,
+      string memory _transactionHash,
+      uint256 _amount,
+      uint256 _timestamp,
+      uint256 userId
+    ) external  returns  (string memory transactionStatus){
+      // require(userDetails[_from].userCounter == userId, "User not authorized");
+      // require(userDetails[_to].userCounter != userId, "Cannot transfer to self");
+
+      _transactionId++;
+
+      UserRole role_from = userDetails[_from].role;
+      UserRole role_to = userDetails[_to].role;
+
+      Transaction memory transaction = Transaction({
+        id: _transactionId,
+        transactionHash: _transactionHash,
+        from: _from,
+        to: _to,
+        amount: _amount,
+        timestamp: _timestamp,
+        userId: userId
+      });
+
+      transactions[_transactionId] = transaction;
+
+      if (role_from == UserRole.Farmer) {
+          farmerTransactions[userId].push(transaction);
+      } else if (role_from == UserRole.Mill) {
+          millTransactions[userId].push(transaction);
+      } else if (role_from == UserRole.Manufacturer) {
+          manufacturerTransactions[userId].push(transaction);
+      } else {
+          revert("Invalid role");
+      }
+
+
+
+      User memory user_to = userDetails[_to];
+      uint256 userId_to = user_to.userCounter;
+
+      if (role_to == UserRole.Farmer) {
+          farmerTransactions[userId_to].push(transaction);
+      } else if (role_to == UserRole.Mill) {
+          millTransactions[userId_to].push(transaction);
+      } else if (role_to == UserRole.Manufacturer) {
+          manufacturerTransactions[userId_to].push(transaction);
+      } else {
+          revert("Invalid role");
+      }
+
+
+      emit TransactionRecorded(_transactionId, _from, _to, _amount, _timestamp, "Transaction recorded successfully");
+      return "Transaction recorded successfully";
+    }
+
+    function getTransactions() external view returns (Transaction[] memory transactionss) {
+      User memory user = userDetails[msg.sender];
+      UserRole role_from = user.role;
+
+    if (role_from == UserRole.Farmer) {
+        transactionss = farmerTransactions[user.userCounter];
+    } else if (role_from == UserRole.Mill) {
+        transactionss = millTransactions[user.userCounter];
+    } else if (role_from == UserRole.Manufacturer) {
+        transactionss = manufacturerTransactions[user.userCounter];
+    } else {
+        revert("Invalid role");
+    }
+
+      return transactionss;
+    }
+
     //users
     function registerUser(
         string memory _name,
@@ -117,7 +261,7 @@ contract SupplyChainPhase1 {
     ) external onlyNewUser returns (uint256 id) {
         UserRole role = stringToUserRole(_role);
         require(role == UserRole.Farmer || role == UserRole.Mill || role == UserRole.Manufacturer, "Invalid role");
-
+        _userCounter++;
         if (role == UserRole.Farmer) {
             require(userAddressToFarmerId[msg.sender] == 0, "User already registered as farmer");
             _farmerIdCounter++;
@@ -126,6 +270,7 @@ contract SupplyChainPhase1 {
 
             userDetails[msg.sender] = User({
                 id: _farmerIdCounter,
+                userCounter: _userCounter,
                 name: _name,
                 role: UserRole.Farmer,
                 _role: _role,
@@ -143,6 +288,7 @@ contract SupplyChainPhase1 {
             
             userDetails[msg.sender] = User({
                 id: _millIdCounter,
+                userCounter: _userCounter,
                 name: _name,
                 role: UserRole.Mill,
                 _role: _role,
@@ -160,6 +306,7 @@ contract SupplyChainPhase1 {
             
             userDetails[msg.sender] = User({
                 id: _manufacturerIdCounter,
+                userCounter : _userCounter,
                 name: _name,
                 role: UserRole.Manufacturer,
                 _role: _role,
@@ -304,4 +451,4 @@ contract SupplyChainPhase1 {
       require(productss.length > 0, "No products found");
       return productss;
     }
-} 
+}
