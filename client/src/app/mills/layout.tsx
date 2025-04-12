@@ -30,9 +30,5 @@ const millsNavItems: NavItem[] = [
 ]
 
 export default function MillsLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <DashboardLayout navItems={millsNavItems} title="Mills Dashboard" sidebarTitle="Mills Portal">
-      {children}
-    </DashboardLayout>
-  )
+  return <DashboardLayout navItems={millsNavItems}>{children}</DashboardLayout>
 }

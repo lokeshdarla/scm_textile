@@ -12,10 +12,6 @@ const farmerNavItems: NavItem[] = [
     href: '/farmer',
   },
   {
-    title: 'Add Raw Material',
-    href: '/farmer/add-raw-material',
-  },
-  {
     title: 'Transactions',
     href: '/farmer/transactions',
   },
@@ -26,9 +22,5 @@ const farmerNavItems: NavItem[] = [
 ]
 
 export default function FarmerLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <DashboardLayout navItems={farmerNavItems} title="Farmer Dashboard" sidebarTitle="Farmer Portal">
-      {children}
-    </DashboardLayout>
-  )
+  return <DashboardLayout navItems={farmerNavItems}>{children}</DashboardLayout>
 }
