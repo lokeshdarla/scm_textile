@@ -496,4 +496,4 @@ contract TextileSupplyChain {
     function getUserInfo(address account) external view returns (UserInfo memory) {
         return users[account];
     }
-} 
+}
