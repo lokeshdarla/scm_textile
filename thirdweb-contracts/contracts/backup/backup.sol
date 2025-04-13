@@ -326,13 +326,6 @@ contract SupplyChainPhase1 {
       return user;
     }
 
-
-
-
-
-
-
-
     //farmers
     function addRawMaterial(
         string memory _materialType,
@@ -372,12 +365,6 @@ contract SupplyChainPhase1 {
       return rawMaterialss;
     }
 
-
-
-
-
-
-
     //mills
     function addFabric(
         uint256 _rawMaterialId,
@@ -406,24 +393,6 @@ contract SupplyChainPhase1 {
       return _fabricIdCounter;
     }
 
-    function buyRawMaterial(
-      uint256 _rawMaterialId
-    ) external onlyMill returns (string memory status) {
-      require(rawMaterials[_rawMaterialId].isAvailable, "Raw material not available");
-
-      uint256 _millId = userAddressToMillId[msg.sender];
-      uint256 _farmerId = rawMaterials[_rawMaterialId].farmerId;
-
-      uint256 _amount = rawMaterials[_rawMaterialId].price * rawMaterials[_rawMaterialId].quantity;
-
-      // sendEther(FarmerIdToAddress[_farmerId], _amount); // amount should be in wei
-
-      rawMaterials[_rawMaterialId].isAvailable = false;
-
-      farmerRawMaterials
-
-    }
-
     function getFabric(uint256 _fabricId) external view onlyMill returns (Fabric memory fabric) {
       fabric = fabrics[_fabricId];
       require(fabric.isAvailable, "Fabric not available");
@@ -437,41 +406,7 @@ contract SupplyChainPhase1 {
       return fabricss;
     }
 
-
-
-
-
-
-
-
     //manufacturers
-    function buyFabric(
-      uint256 _fabricId
-    ) external onlyManufacturer returns (string memory status) {
-      require(fabrics[_fabricId].isAvailable, "Fabric not available");
-
-      uint256 _manufacturerId = userAddressToManufacturerId[msg.sender];
-      uint256 _millId = fabrics[_fabricId].millId;
-
-      uint256 _amount = fabrics[_fabricId].price * fabrics[_fabricId].quantity;
-
-      // sendEther(MillIdToAddress[_millId], _amount); // amount should be in wei
-
-      fabrics[_fabricId].isAvailable = false;
-
-      // Record transaction
-      recordTransaction(
-        msg.sender,
-        MillIdToAddress[_millId],
-        "0x", // transaction hash placeholder
-        _amount,
-        block.timestamp,
-        _manufacturerId
-      );
-
-      return "Fabric purchased successfully";
-    }
-
     function addProduct(
         uint256 _fabricId,
         string memory _productType,
