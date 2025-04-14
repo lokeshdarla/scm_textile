@@ -40,9 +40,15 @@ export default function FarmerDashboard() {
     unit: 'kg',
   })
 
+  const [isConnected, setIsConnected] = useState(false)
+
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
+
+  useEffect(() => {
+    setIsConnected(!!activeAccount)
+  }, [activeAccount])
 
   // Fetch raw materials
   const fetchRawMaterials = async () => {
@@ -243,6 +249,19 @@ export default function FarmerDashboard() {
   // Get blockchain explorer URL
   const getExplorerUrl = (txHash: string) => {
     return `https://sepolia.etherscan.io/tx/${txHash}`
+  }
+
+  if (!activeAccount) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)]">
+        <Package className="w-16 h-16 mb-4 text-gray-400" />
+        <h2 className="text-xl font-semibold text-gray-900">Wallet Not Connected</h2>
+        <p className="mt-2 text-gray-500">Please connect your wallet to access the Farmer Dashboard</p>
+        <Button className="mt-4 bg-primary hover:bg-primary/90" onClick={() => {}}>
+          Connect Wallet
+        </Button>
+      </div>
+    )
   }
 
   return (
