@@ -21,7 +21,7 @@ import Link from 'next/link'
 enum Role {
   FARMER = 'FARMER',
   MANUFACTURER = 'MANUFACTURER',
-  MILLS = 'MILLS',
+  MILLS = 'MILL',
   DISTRIBUTOR = 'DISTRIBUTOR',
   RETAILER = 'RETAILER',
   CUSTOMER = 'CUSTOMER',
@@ -47,22 +47,19 @@ export default function Page() {
   const router = useRouter()
   const { showLoading, hideLoading } = useLoading()
 
-  const { data: userId } = useReadContract({
-    contract,
-    method: 'function userAddressToId(address) view returns (uint256)',
-    params: [account?.address || '0x0000000000000000000000000000000000000000'],
-    queryOptions: {
-      enabled: !!account?.address && !!selectedRole,
-    },
-  })
+  // const { data: userId } = useReadContract({
+  //   contract,
+  //   method: 'function userAddressToId(address) view returns (uint256)',
+  //   params: [account?.address || '0x0000000000000000000000000000000000000000'],
+  //   queryOptions: {
+  //     enabled: !!account?.address && !!selectedRole,
+  //   },
+  // })
 
   const { data: userDetails, isFetched: isUserDetailsFetched } = useReadContract({
     contract,
-    method: 'function users(uint256) view returns (uint256 id, address userAddress, string name, string role, bool isActive)',
-    params: [userId ?? BigInt(0)],
-    queryOptions: {
-      enabled: !!userId && Number(userId) > 0,
-    },
+    method: 'function getUserInfo(address account) view returns ((string name, string role, string location, uint256 registrationDate))',
+    params: [account?.address || '0x0000000000000000000000000000000000000000'],
   })
 
   const { mutateAsync: sendTx } = useSendTransaction()
@@ -80,13 +77,13 @@ export default function Page() {
       return
     }
 
-    const userRole = userDetails[3] as string
-    const userRoleEnum = userRole.split('_')[0].toUpperCase() as Role
+    let userRole = userDetails.role
+    const userRoleEnum = userRole as Role
 
     if (userRoleEnum === selectedRole) {
       // Role matches, redirect to appropriate dashboard
       toast.success('Login successful', {
-        description: `Welcome back, ${userDetails[2]}`,
+        description: `Welcome back, ${userDetails.name}`,
       })
       console.log(selectedRole)
       router.push(`/${selectedRole.toLowerCase()}`)
@@ -161,7 +158,7 @@ export default function Page() {
   const roleIcons = {
     FARMER: '🌾',
     MANUFACTURER: '🏭',
-    MILLS: '⚙️',
+    MILL: '⚙️',
     DISTRIBUTOR: '🚚',
     RETAILER: '🏪',
     CUSTOMER: '🛒',

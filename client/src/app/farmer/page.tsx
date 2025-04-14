@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ExternalLink, Package, Plus, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useContractEvents, useSendTransaction } from 'thirdweb/react'
 import { useLoading } from '@/components/providers/loading-provider'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -13,6 +13,8 @@ import { toast } from 'sonner'
 import { prepareContractCall } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
+import { parseEther } from 'viem'
+import { isLoggedIn } from '@/actions/login'
 
 // Define the RawMaterial type based on the smart contract struct
 interface RawMaterial {
@@ -37,50 +39,6 @@ interface FormData {
   unit?: string
 }
 
-// Dummy data for raw materials
-const dummyRawMaterials: RawMaterial[] = [
-  {
-    id: BigInt(1),
-    farmerId: BigInt(1),
-    materialType: 'Cotton',
-    quantity: BigInt(1000),
-    price: BigInt('500000000000000000'), // 0.5 ETH in wei
-    location: 'Farm A, Region X',
-    isAvailable: true,
-  },
-  {
-    id: BigInt(2),
-    farmerId: BigInt(1),
-    materialType: 'Wool',
-    quantity: BigInt(500),
-    price: BigInt('300000000000000000'), // 0.3 ETH in wei
-    location: 'Farm B, Region Y',
-    isAvailable: false,
-    buyer: '0x1234...5678',
-    transactionHash: '0xabcd...efgh',
-  },
-  {
-    id: BigInt(3),
-    farmerId: BigInt(1),
-    materialType: 'Silk',
-    quantity: BigInt(200),
-    price: BigInt('800000000000000000'), // 0.8 ETH in wei
-    location: 'Farm C, Region Z',
-    isAvailable: true,
-  },
-  {
-    id: BigInt(4),
-    farmerId: BigInt(1),
-    materialType: 'Hemp',
-    quantity: BigInt(800),
-    price: BigInt('400000000000000000'), // 0.4 ETH in wei
-    location: 'Farm D, Region W',
-    isAvailable: false,
-    buyer: '0x8765...4321',
-    transactionHash: '0xijkl...mnop',
-  },
-]
-
 export default function FarmerDashboard() {
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -95,11 +53,42 @@ export default function FarmerDashboard() {
     description: '',
     unit: 'kg',
   })
-  const account = useActiveAccount()
+
+  const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
-  const activeAccount = useActiveAccount()
   const router = useRouter()
+
+  // Define the event we want to listen for
+  const rawMaterialAddedEvent = {
+    signature: 'event RawMaterialAdded(uint256 id, address farmerId, string materialType, uint256 quantity, uint256 price, string location, bool isAvailable)',
+  }
+
+  const { data: contractEvents } = useContractEvents({
+    contract,
+  })
+
+  // Check authentication on component mount
+  // useEffect(() => {
+  //   const checkAuth = async () => {
+  //     try {
+  //       const loggedIn = await isLoggedIn()
+  //       if (!loggedIn) {
+  //         toast.error('Authentication required', {
+  //           description: 'Please log in to access the dashboard',
+  //         })
+  //         router.push('/login')
+  //       }
+  //     } catch (error) {
+  //       console.error('Auth check failed:', error)
+  //       router.push('/login')
+  //     }
+  //   }
+
+  //   checkAuth()
+  // }, [router])
+
+  // Check if user is connected
   useEffect(() => {
     if (!activeAccount?.address) {
       toast.error('No wallet connected', {
@@ -109,23 +98,55 @@ export default function FarmerDashboard() {
       router.push('/login')
       return
     }
-  }, [activeAccount])
+  }, [activeAccount, router])
 
-  // Simulate loading data
+  // Load data from the blockchain
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
+      showLoading('Loading materials from blockchain...')
 
-      // Simulate network delay
-      setTimeout(() => {
-        setRawMaterials(dummyRawMaterials)
+      try {
+        console.log(contractEvents)
+        // This would typically be a call to your contract to get the raw materials
+        // For now, we'll parse the events to create our materials list
+        if (contractEvents && contractEvents.length > 0) {
+          const materialsFromEvents: RawMaterial[] = contractEvents.map((event, index) => {
+            const args = event.args as any
+            return {
+              id: args.id || BigInt(index + 1),
+              farmerId: args.farmerId || BigInt(0),
+              materialType: args.materialType || 'Unknown',
+              quantity: args.quantity || BigInt(0),
+              price: args.price || BigInt(0),
+              location: args.location || 'Unknown',
+              isAvailable: args.isAvailable !== undefined ? args.isAvailable : true,
+              transactionHash: event.transactionHash,
+            }
+          })
+
+          setRawMaterials(materialsFromEvents)
+        } else {
+          // If no events yet, start with empty array
+          setRawMaterials([])
+        }
+      } catch (error) {
+        console.error('Error loading raw materials:', error)
+        toast.error('Failed to load raw materials', {
+          description: 'Please check your connection and try again',
+        })
+        // Set empty array on error
+        setRawMaterials([])
+      } finally {
         setIsLoading(false)
         hideLoading()
-      }, 2000)
+      }
     }
 
-    loadData()
-  }, [showLoading, hideLoading])
+    if (activeAccount?.address) {
+      loadData()
+    }
+  }, [activeAccount, contractEvents, hideLoading, showLoading])
 
   // Filter raw materials based on search term
   const filteredMaterials = rawMaterials.filter(
@@ -135,64 +156,104 @@ export default function FarmerDashboard() {
   // Handle adding new raw material
   const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate inputs
+    if (!formData.materialType || !formData.quantity || !formData.price || !formData.location) {
+      toast.error('Missing information', {
+        description: 'Please fill in all required fields',
+      })
+      return
+    }
+
+    // Validate numeric inputs
+    const quantity = parseInt(formData.quantity)
+    const price = parseFloat(formData.price)
+
+    if (isNaN(quantity) || quantity <= 0) {
+      toast.error('Invalid quantity', {
+        description: 'Please enter a valid positive number',
+      })
+      return
+    }
+
+    if (isNaN(price) || price <= 0) {
+      toast.error('Invalid price', {
+        description: 'Please enter a valid positive price',
+      })
+      return
+    }
+
     setIsSubmitting(true)
-    showLoading('Adding new raw material...')
+    showLoading('Adding new raw material to blockchain...')
 
     try {
-      // Validate inputs
-      if (!formData.materialType || !formData.quantity || !formData.price || !formData.location) {
-        toast.error('Missing information', {
-          description: 'Please fill in all required fields',
-        })
-        return
-      }
+      // Convert price from ETH to Wei
+      const priceInWei = parseEther(formData.price)
 
+      // Prepare the contract call
       const transaction = await prepareContractCall({
         contract,
-        method: 'function addRawMaterial(string _materialType, uint256 _quantity, uint256 _price, string _location) returns (uint256)',
-        params: [formData.materialType, BigInt(formData.quantity), BigInt(parseFloat(formData.price) * 1e18), formData.location],
+        method: 'function addRawMaterial(string qrCode, string name, string rawMaterialType, uint256 quantity, uint256 price)',
+        params: ['QrCodeHash', formData.materialType, formData.materialType, BigInt(quantity), priceInWei],
       })
-      const { transactionHash } = await sendTx(transaction)
 
-      const newId = BigInt(rawMaterials.length + 1)
-      const newRawMaterial: RawMaterial = {
-        id: newId,
-        farmerId: BigInt(1),
-        materialType: formData.materialType,
-        quantity: BigInt(formData.quantity),
-        price: BigInt(Math.floor(parseFloat(formData.price) * 1e18)),
-        location: formData.location,
-        isAvailable: true,
+      // Send the transaction
+      const tx = await sendTx(transaction)
+
+      // Check transaction success
+      if (tx.transactionHash) {
+        toast.success('Raw material added successfully!', {
+          description: `Your raw material has been added to the blockchain`,
+          duration: 5000,
+        })
+
+        // Create new material object with transaction hash
+        const newId = BigInt(rawMaterials.length + 1)
+        const newRawMaterial: RawMaterial = {
+          id: newId,
+          farmerId: BigInt(activeAccount?.address || 0),
+          materialType: formData.materialType,
+          quantity: BigInt(quantity),
+          price: priceInWei,
+          location: formData.location,
+          isAvailable: true,
+          transactionHash: tx.transactionHash,
+        }
+
+        // Add to local state
+        setRawMaterials([...rawMaterials, newRawMaterial])
+
+        // Reset form and close dialog
+        setFormData({
+          materialType: '',
+          quantity: '',
+          price: '',
+          location: '',
+          description: '',
+          unit: 'kg',
+        })
+
+        setAddMaterialDialogOpen(false)
+      } else {
+        throw new Error('Transaction failed')
       }
-
-      setRawMaterials([...rawMaterials, newRawMaterial])
-
-      toast.success('Raw material added successfully!', {
-        description: 'Your material has been added to the blockchain',
-      })
-
-      // Reset form and close dialog
-      setFormData({
-        materialType: '',
-        quantity: '',
-        price: '',
-        location: '',
-        description: '',
-        unit: 'kg',
-      })
-      setAddMaterialDialogOpen(false)
     } catch (error) {
       console.error('Error submitting form:', error)
-      toast.error('Failed to add raw material. Please try again.')
+      toast.error('Failed to add raw material', {
+        description: 'Please try again or check your wallet connection',
+      })
     } finally {
       setIsSubmitting(false)
       hideLoading()
     }
   }
 
+  // Format price from Wei to ETH for display
   const formatPrice = (price: bigint) => {
     return (Number(price) / 1e18).toFixed(4)
   }
+
+  // Get blockchain explorer URL
   const getExplorerUrl = (txHash: string) => {
     return `https://sepolia.etherscan.io/tx/${txHash}`
   }
@@ -342,6 +403,7 @@ export default function FarmerDashboard() {
                 <Input
                   id="quantity"
                   type="number"
+                  min="1"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                   className="h-10 col-span-3 border-gray-200"
@@ -357,6 +419,7 @@ export default function FarmerDashboard() {
                   id="price"
                   type="number"
                   step="0.001"
+                  min="0.001"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   className="h-10 col-span-3 border-gray-200"

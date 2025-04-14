@@ -73,29 +73,29 @@ const AddRawMaterialPage = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <Card className="border-blue-100 shadow-lg overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 pb-6">
+    <div className="max-w-2xl p-4 mx-auto">
+      <Card className="overflow-hidden border-blue-100 shadow-lg">
+        <CardHeader className="pb-6 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center mb-2">
-            <div className="mr-3 bg-blue-100 p-2 rounded-lg">
-              <Package className="h-5 w-5 text-blue-600" />
+            <div className="p-2 mr-3 bg-blue-100 rounded-lg">
+              <Package className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <CardTitle className="text-blue-700 text-xl">Add Raw Material</CardTitle>
+              <CardTitle className="text-xl text-blue-700">Add Raw Material</CardTitle>
               <CardDescription className="text-blue-600/70">Enter the details of the raw material you want to add to your inventory.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="pt-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="materialType" className="text-blue-700 font-medium flex items-center">
+                <Label htmlFor="materialType" className="flex items-center font-medium text-blue-700">
                   <Package className="h-4 w-4 mr-1.5 text-blue-500" />
                   Material Type
                 </Label>
                 <Select value={formData.materialType} onValueChange={(value) => handleSelectChange('materialType', value)}>
-                  <SelectTrigger id="materialType" className="border-blue-200 hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                  <SelectTrigger id="materialType" className="border-blue-200 shadow-sm hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500">
                     <SelectValue placeholder="Select material type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -112,7 +112,7 @@ const AddRawMaterialPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price" className="text-blue-700 font-medium flex items-center">
+                <Label htmlFor="price" className="flex items-center font-medium text-blue-700">
                   <DollarSign className="h-4 w-4 mr-1.5 text-blue-500" />
                   Price per Unit
                 </Label>
@@ -126,7 +126,7 @@ const AddRawMaterialPage = () => {
                     type="number"
                     value={formData.price}
                     onChange={handleChange}
-                    className="pl-10 border-blue-200 hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                    className="pl-10 border-blue-200 shadow-sm hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="0.00"
                     required
                   />
@@ -134,9 +134,9 @@ const AddRawMaterialPage = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="quantity" className="text-blue-700 font-medium">
+                <Label htmlFor="quantity" className="font-medium text-blue-700">
                   Quantity
                 </Label>
                 <div className="flex">
@@ -146,12 +146,12 @@ const AddRawMaterialPage = () => {
                     type="number"
                     value={formData.quantity}
                     onChange={handleChange}
-                    className="border-blue-200 hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm rounded-r-none"
+                    className="border-blue-200 rounded-r-none shadow-sm hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="0"
                     required
                   />
                   <Select value={formData.unit} onValueChange={(value) => handleSelectChange('unit', value)}>
-                    <SelectTrigger className="w-20 border-blue-200 hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm rounded-l-none border-l-0">
+                    <SelectTrigger className="w-20 border-l-0 border-blue-200 rounded-l-none shadow-sm hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -165,7 +165,7 @@ const AddRawMaterialPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location" className="text-blue-700 font-medium flex items-center">
+                <Label htmlFor="location" className="flex items-center font-medium text-blue-700">
                   <MapPin className="h-4 w-4 mr-1.5 text-blue-500" />
                   Location
                 </Label>
@@ -174,7 +174,7 @@ const AddRawMaterialPage = () => {
                   name="location"
                   value={formData.location}
                   onChange={handleChange}
-                  className="border-blue-200 hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                  className="border-blue-200 shadow-sm hover:border-blue-300 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Storage location"
                   required
                 />
@@ -182,7 +182,7 @@ const AddRawMaterialPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-blue-700 font-medium flex items-center">
+              <Label htmlFor="description" className="flex items-center font-medium text-blue-700">
                 <Info className="h-4 w-4 mr-1.5 text-blue-500" />
                 Description (Optional)
               </Label>
@@ -197,11 +197,11 @@ const AddRawMaterialPage = () => {
             </div>
           </CardContent>
 
-          <CardFooter className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-blue-100 flex justify-end gap-3 p-6">
+          <CardFooter className="flex justify-end gap-3 p-6 border-t border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50">
             <Button
               type="button"
               variant="outline"
-              className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
+              className="text-blue-700 border-blue-300 hover:bg-blue-50 hover:border-blue-400"
               onClick={() =>
                 setFormData({
                   materialType: '',
@@ -215,10 +215,10 @@ const AddRawMaterialPage = () => {
             >
               Reset
             </Button>
-            <Button type="submit" className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md" disabled={isSubmitting}>
+            <Button type="submit" className="text-white shadow-md bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Adding...
                 </>
               ) : (
