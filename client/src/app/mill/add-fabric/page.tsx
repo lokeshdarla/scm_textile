@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { parseEther } from 'viem'
 import { Textarea } from '@/components/ui/textarea'
 import { uploadJsonDirect } from '@/constants/uploadToPinata'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 // Define the Apparel type based on the smart contract struct
 interface RawMaterial {
@@ -65,7 +66,7 @@ export default function AddFabricPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedRawMaterials, setSelectedRawMaterials] = useState<Set<string>>(new Set())
+  const [selectedRawMaterial, setSelectedRawMaterial] = useState<string>('')
 
   // Form state
   const [qrCode, setQrCode] = useState('')
@@ -152,13 +153,7 @@ export default function AddFabricPage() {
 
   // Handle raw material selection
   const handleRawMaterialSelection = (rawMaterialId: string) => {
-    const newSelectedRawMaterials = new Set(selectedRawMaterials)
-    if (newSelectedRawMaterials.has(rawMaterialId)) {
-      newSelectedRawMaterials.delete(rawMaterialId)
-    } else {
-      newSelectedRawMaterials.add(rawMaterialId)
-    }
-    setSelectedRawMaterials(newSelectedRawMaterials)
+    setSelectedRawMaterial(rawMaterialId)
   }
 
   // Handle form submission
@@ -166,8 +161,8 @@ export default function AddFabricPage() {
     e.preventDefault()
 
     // Validate form
-    if (!qrCode || !name || !composition || !price || selectedRawMaterials.size === 0) {
-      toast.error('Please fill in all fields and select at least one raw material', {
+    if (!name || !composition || !price || selectedRawMaterial === '') {
+      toast.error('Please fill in all fields and select one raw material', {
         description: 'All fields are required to create a new fabric',
       })
       return
@@ -187,18 +182,35 @@ export default function AddFabricPage() {
 
     try {
       // Convert selected raw material IDs to bigint array
-      const rawMaterialIds = Array.from(selectedRawMaterials).map((id) => BigInt(id))
+      const ids = []
+      ids.push(selectedRawMaterial)
 
+      const rawMaterialIds = ids.map((id) => BigInt(id))
       // Convert price to Wei (assuming price is in ETH)
       const priceInWei = parseEther(price)
 
+      const rawMaterial = filteredRawMaterials.find((rawMaterial) => rawMaterial.id === rawMaterialIds[0])
+
+      // Convert BigInt values to strings for JSON serialization
+      const serializedRawMaterial = rawMaterial
+        ? {
+            ...rawMaterial,
+            id: rawMaterial.id.toString(),
+            timestamp: rawMaterial.timestamp.toString(),
+            quantity: rawMaterial.quantity.toString(),
+            price: rawMaterial.price.toString(),
+          }
+        : null
+
       const data = {
         name: name,
-        rawMaterial: selectedRawMaterials,
+        rawMaterial: serializedRawMaterial,
         composition: composition,
-        price: priceInWei,
+        price: price,
         timestamp: new Date().toISOString(),
       }
+
+      console.log(data)
 
       const qrCodeData = await uploadJsonDirect(data)
 
@@ -224,7 +236,7 @@ export default function AddFabricPage() {
         setName('')
         setComposition('')
         setPrice('')
-        setSelectedRawMaterials(new Set())
+        setSelectedRawMaterial('')
 
         // Navigate back to mill dashboard
         router.push('/mill')
@@ -263,10 +275,6 @@ export default function AddFabricPage() {
                 <CardDescription className="mt-1 text-sm text-gray-500">Enter the details of your fabric</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="qrCode">QR Code</Label>
-                  <Input id="qrCode" placeholder="Enter QR code for the fabric" value={qrCode} onChange={(e) => setQrCode(e.target.value)} required />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Fabric Name</Label>
                   <Input id="name" placeholder="Enter fabric name" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -329,11 +337,9 @@ export default function AddFabricPage() {
                         {filteredRawMaterials.map((rawMaterial) => (
                           <TableRow key={rawMaterial.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
                             <TableCell className="p-4">
-                              <Checkbox
-                                disabled={rawMaterial.isUsedForFabric === true}
-                                checked={selectedRawMaterials.has(rawMaterial.id.toString())}
-                                onCheckedChange={() => handleRawMaterialSelection(rawMaterial.id.toString())}
-                              />
+                              <RadioGroup value={selectedRawMaterial} onValueChange={handleRawMaterialSelection}>
+                                <RadioGroupItem value={rawMaterial.id.toString()} id={`radio-${rawMaterial.id}`} disabled={rawMaterial.isUsedForFabric === true} />
+                              </RadioGroup>
                             </TableCell>
                             <TableCell className="p-4 text-sm font-medium text-gray-900">{rawMaterial.name}</TableCell>
                             <TableCell className="p-4 text-sm text-gray-600 capitalize">{rawMaterial.rawMaterialType}</TableCell>
@@ -352,7 +358,7 @@ export default function AddFabricPage() {
             <Button type="button" variant="outline" onClick={() => router.push('/distributor')} className="border-gray-200">
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedRawMaterials.size === 0}>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedRawMaterial === ''}>
               {isSubmitting ? 'Creating...' : 'Create Fabric'}
             </Button>
           </div>
