@@ -9,10 +9,6 @@ const manufacturersNavItems: NavItem[] = [
     href: '/manufacturer',
   },
   {
-    title: 'Buy Fabric',
-    href: '/manufacturer/buy-fabric',
-  },
-  {
     title: 'Add Product',
     href: '/manufacturer/add-product',
   },

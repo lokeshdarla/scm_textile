@@ -78,7 +78,7 @@ export default function MillDashboard() {
   // Fetch available raw materials
   const { data: availableMaterialIds, isFetched: isIdsFetched } = useReadContract({
     contract,
-    method: 'function getAvailableRawMaterials() view returns (uint256[])',
+    method: 'function getAllRawMaterials() view returns (uint256[])',
     params: [],
   })
 
@@ -102,7 +102,9 @@ export default function MillDashboard() {
             params: [id],
           })
 
-          if (materialData) {
+          console.log(materialData)
+
+          if (materialData && materialData.isAvailable) {
             materials.push(materialData)
           }
         }
@@ -143,7 +145,7 @@ export default function MillDashboard() {
         contract,
         method: 'function buyRawMaterial(uint256 rawMaterialId) payable',
         params: [selectedMaterial.id],
-        value: selectedMaterial.price,
+        value: BigInt(selectedMaterial.price), // 0.0001 ETH in wei
       })
 
       // Send the transaction
@@ -178,7 +180,8 @@ export default function MillDashboard() {
 
   // Format price from Wei to ETH for display
   const formatPrice = (price: bigint) => {
-    return (Number(price) / 1e18).toFixed(4)
+    const priceInEth = Number(price) / 1e18
+    return priceInEth.toFixed(4)
   }
 
   // Get blockchain explorer URL

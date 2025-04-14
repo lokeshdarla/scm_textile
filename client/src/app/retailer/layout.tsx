@@ -9,10 +9,6 @@ const retailersNavItems: NavItem[] = [
     href: '/retailer',
   },
   {
-    title: 'Buy Product',
-    href: '/retailer/buy-product',
-  },
-  {
     title: 'Add for Sale',
     href: '/retailer/add-for-sale',
   },

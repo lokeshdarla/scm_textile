@@ -1,142 +1,330 @@
-import React from 'react'
+'use client'
+import React, { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useActiveAccount, useReadContract, useSendTransaction } from 'thirdweb/react'
+import { useLoading } from '@/components/providers/loading-provider'
+import { toast } from 'sonner'
+import { prepareContractCall, readContract } from 'thirdweb'
+import { contract } from '@/lib/client'
+import { useRouter } from 'next/navigation'
+import { Package, Plus, Search } from 'lucide-react'
+import { isLoggedIn } from '@/actions/login'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-export default function AddForShipping() {
+// Define the Apparel type based on the smart contract struct
+interface Apparel {
+  id: bigint
+  manufacturer: string
+  distributor: string
+  qrCode: string
+  fabricIds: readonly bigint[]
+  isAvailable: boolean
+  timestamp: bigint
+  name: string
+  category: string
+  size: string
+  price: bigint
+}
+
+export default function AddForShippingPage() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedApparels, setSelectedApparels] = useState<Set<string>>(new Set())
+
+  // Form state
+  const [qrCode, setQrCode] = useState('')
+  const [name, setName] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [price, setPrice] = useState('')
+
+  const activeAccount = useActiveAccount()
+  const { showLoading, hideLoading } = useLoading()
+  const { mutateAsync: sendTx } = useSendTransaction()
+  const router = useRouter()
+
+  // Check if user is connected
+  useEffect(() => {
+    if (!activeAccount?.address) {
+      toast.error('No wallet connected', {
+        description: 'Please connect your wallet to access the dashboard',
+        duration: 5000,
+      })
+      router.push('/login')
+      return
+    }
+  }, [activeAccount, router])
+
+  // Fetch purchased apparels
+  const { data: purchasedApparelIds, isFetched: isIdsFetched } = useReadContract({
+    contract,
+    method: 'function getDistributorApparels(address distributor) view returns (uint256[])',
+    params: [activeAccount?.address || '0x0000000000000000000000000000000000000000'],
+  })
+
+  // State for purchased apparels
+  const [purchasedApparels, setPurchasedApparels] = useState<Apparel[]>([])
+
+  // Fetch details for each apparel
+  useEffect(() => {
+    const fetchApparelDetails = async () => {
+      if (!purchasedApparelIds || !isIdsFetched || !activeAccount?.address) return
+
+      setIsLoading(true)
+      showLoading('Loading your apparel products...')
+
+      try {
+        const apparelList: Apparel[] = []
+
+        for (const id of purchasedApparelIds) {
+          try {
+            const apparelData = await readContract({
+              contract,
+              method:
+                'function getApparel(uint256 apparelId) view returns ((uint256 id, address manufacturer, address distributor, string qrCode, uint256[] fabricIds, bool isAvailable, uint256 timestamp, string name, string category, string size, uint256 price))',
+              params: [id],
+            })
+
+            if (apparelData) {
+              apparelList.push(apparelData)
+            }
+          } catch (error) {
+            console.error(`Error fetching apparel with ID ${id}:`, error)
+            // Continue with other apparels even if one fails
+          }
+        }
+
+        setPurchasedApparels(apparelList)
+      } catch (error) {
+        console.error('Error loading apparels:', error)
+        toast.error('Failed to load apparel products', {
+          description: 'Please check your connection and try again',
+        })
+        setPurchasedApparels([])
+      } finally {
+        setIsLoading(false)
+        hideLoading()
+      }
+    }
+
+    if (activeAccount?.address && purchasedApparelIds && isIdsFetched) {
+      fetchApparelDetails()
+    }
+  }, [activeAccount, purchasedApparelIds, isIdsFetched, hideLoading, showLoading])
+
+  // Filter apparels based on search term
+  const filteredApparels = purchasedApparels.filter(
+    (apparel) =>
+      apparel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      apparel.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      apparel.size.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Handle apparel selection
+  const handleApparelSelection = (apparelId: string) => {
+    const newSelectedApparels = new Set(selectedApparels)
+    if (newSelectedApparels.has(apparelId)) {
+      newSelectedApparels.delete(apparelId)
+    } else {
+      newSelectedApparels.add(apparelId)
+    }
+    setSelectedApparels(newSelectedApparels)
+  }
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validate form
+    if (!qrCode || !name || !quantity || !price || selectedApparels.size === 0) {
+      toast.error('Please fill in all fields and select at least one apparel product', {
+        description: 'All fields are required to create a new packaged stock',
+      })
+      return
+    }
+
+    // Validate quantity is a positive integer
+    const quantityValue = parseInt(quantity)
+    if (isNaN(quantityValue) || quantityValue <= 0) {
+      toast.error('Invalid quantity', {
+        description: 'Please enter a valid positive number for the quantity',
+      })
+      return
+    }
+
+    // Validate price is a positive number
+    const priceValue = parseFloat(price)
+    if (isNaN(priceValue) || priceValue <= 0) {
+      toast.error('Invalid price', {
+        description: 'Please enter a valid positive number for the price',
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+    showLoading('Creating new packaged stock...')
+
+    try {
+      // Convert selected apparel IDs to bigint array
+      const apparelIds = Array.from(selectedApparels).map((id) => BigInt(id))
+
+      // Convert price to Wei (assuming price is in ETH)
+      const priceInWei = BigInt(Math.floor(priceValue * 1e18))
+
+      // Prepare the contract call
+      const transaction = await prepareContractCall({
+        contract,
+        method: 'function addPackagedStock(string qrCode, uint256[] apparelIds, string name, uint256 quantity, uint256 price)',
+        params: [qrCode, apparelIds, name, BigInt(quantityValue), priceInWei],
+      })
+
+      // Send the transaction
+      const tx = await sendTx(transaction)
+
+      // Check transaction success
+      if (tx.transactionHash) {
+        toast.success('Packaged stock created successfully!', {
+          description: `Your new packaged stock "${name}" has been created`,
+          duration: 5000,
+        })
+
+        // Reset form
+        setQrCode('')
+        setName('')
+        setQuantity('')
+        setPrice('')
+        setSelectedApparels(new Set())
+
+        // Navigate back to distributor dashboard
+        router.push('/distributor')
+      } else {
+        throw new Error('Transaction failed')
+      }
+    } catch (error) {
+      console.error('Error creating packaged stock:', error)
+      toast.error('Failed to create packaged stock', {
+        description: 'Please try again or check your wallet connection',
+      })
+    } finally {
+      setIsSubmitting(false)
+      hideLoading()
+    }
+  }
+
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Add Products for Shipping</h1>
-
-      {/* Shipping Form */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-xl font-semibold mb-4">Shipping Details</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
+      <div className="p-6 pb-0">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <label htmlFor="retailer" className="block text-sm font-medium text-gray-700 mb-1">
-              Select Retailer
-            </label>
-            <select id="retailer" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Select a retailer</option>
-              <option value="1">Fashion Retail Co.</option>
-              <option value="2">Style Outlet</option>
-              <option value="3">Trendy Fashion</option>
-              <option value="4">Urban Style</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="shipping-method" className="block text-sm font-medium text-gray-700 mb-1">
-              Shipping Method
-            </label>
-            <select id="shipping-method" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="standard">Standard Shipping</option>
-              <option value="express">Express Shipping</option>
-              <option value="overnight">Overnight Shipping</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="tracking-number" className="block text-sm font-medium text-gray-700 mb-1">
-              Tracking Number
-            </label>
-            <input
-              type="text"
-              id="tracking-number"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter tracking number"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="estimated-delivery" className="block text-sm font-medium text-gray-700 mb-1">
-              Estimated Delivery Date
-            </label>
-            <input type="date" id="estimated-delivery" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <h1 className="text-2xl font-semibold text-gray-900">Add Packaged Stock for Shipping</h1>
+            <p className="mt-1 text-sm text-gray-500">Package apparel products for shipping</p>
           </div>
         </div>
       </div>
 
-      {/* Products to Ship */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4">Products to Ship</h2>
+      <div className="flex-1 px-6 pb-6 overflow-hidden">
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* Package Details Card */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-900">Package Details</CardTitle>
+                <CardDescription className="mt-1 text-sm text-gray-500">Enter the details of your packaged stock</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="qrCode">QR Code</Label>
+                  <Input id="qrCode" placeholder="Enter QR code for the package" value={qrCode} onChange={(e) => setQrCode(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Package Name</Label>
+                  <Input id="name" placeholder="Enter package name" value={name} onChange={(e) => setName(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Quantity</Label>
+                  <Input id="quantity" type="number" min="1" placeholder="Enter quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price (ETH)</Label>
+                  <Input id="price" type="number" step="0.0001" min="0" placeholder="Enter price in ETH" value={price} onChange={(e) => setPrice(e.target.value)} required />
+                </div>
+              </CardContent>
+            </Card>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-gray-500 text-xs">T</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Cotton T-Shirts</div>
-                      <div className="text-sm text-gray-500">Manufacturer: Fashion Co.</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <button className="text-gray-500 hover:text-blue-600">-</button>
-                    <input type="number" min="1" value="100" className="w-16 mx-2 text-center border border-gray-300 rounded-md" />
-                    <button className="text-gray-500 hover:text-blue-600">+</button>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">$12.99</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$1,299.00</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                  <button className="hover:text-red-800">Remove</button>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-gray-500 text-xs">J</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Denim Jeans</div>
-                      <div className="text-sm text-gray-500">Manufacturer: DenimWorks</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <button className="text-gray-500 hover:text-blue-600">-</button>
-                    <input type="number" min="1" value="50" className="w-16 mx-2 text-center border border-gray-300 rounded-md" />
-                    <button className="text-gray-500 hover:text-blue-600">+</button>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">$29.99</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$1,499.50</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                  <button className="hover:text-red-800">Remove</button>
-                </td>
-              </tr>
-            </tbody>
-            <tfoot className="bg-gray-50">
-              <tr>
-                <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                  Total:
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">$2,798.50</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+            {/* Apparel Selection Card */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-900">Select Apparel Products</CardTitle>
+                <CardDescription className="mt-1 text-sm text-gray-500">Choose the apparel products to include in this package</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                  <Input
+                    placeholder="Search apparel by name, category, or size..."
+                    className="h-10 pl-10 text-sm bg-white border-gray-200 placeholder:text-gray-400"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
 
-        <div className="mt-6 flex justify-end">
-          <button className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">Ship Products</button>
-        </div>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-8 h-8 border-b-2 rounded-full animate-spin border-primary"></div>
+                    <span className="ml-2 text-gray-500">Loading apparel products...</span>
+                  </div>
+                ) : filteredApparels.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium text-gray-900">No apparel products available</h3>
+                    <p className="mt-1 text-sm text-gray-500">You need to purchase apparel products before creating a package</p>
+                    <Button variant="outline" className="mt-4" onClick={() => router.push('/distributor')}>
+                      Go to Marketplace
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="overflow-auto max-h-[400px] border rounded-md">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-gray-50/80 backdrop-blur supports-[backdrop-filter]:bg-gray-50/60">
+                        <TableRow className="border-b border-gray-200">
+                          <TableHead className="w-10 h-12 px-4 text-xs font-medium text-gray-500"></TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Name</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Category</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Size</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredApparels.map((apparel) => (
+                          <TableRow key={apparel.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
+                            <TableCell className="p-4">
+                              <Checkbox checked={selectedApparels.has(apparel.id.toString())} onCheckedChange={() => handleApparelSelection(apparel.id.toString())} />
+                            </TableCell>
+                            <TableCell className="p-4 text-sm font-medium text-gray-900">{apparel.name}</TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600 capitalize">{apparel.category}</TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600">{apparel.size}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex justify-end mt-6 space-x-4">
+            <Button type="button" variant="outline" onClick={() => router.push('/distributor')} className="border-gray-200">
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedApparels.size === 0}>
+              {isSubmitting ? 'Creating...' : 'Create Package'}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   )

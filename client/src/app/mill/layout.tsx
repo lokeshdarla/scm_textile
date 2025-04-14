@@ -12,10 +12,6 @@ const millsNavItems: NavItem[] = [
     href: '/mill',
   },
   {
-    title: 'Buy Raw Material',
-    href: '/mill/buy-raw-material',
-  },
-  {
     title: 'Add Fabric',
     href: '/mill/add-fabric',
   },

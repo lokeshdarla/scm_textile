@@ -9,10 +9,6 @@ const customerNavItems: NavItem[] = [
     href: '/customer',
   },
   {
-    title: 'Products',
-    href: '/customer/products',
-  },
-  {
     title: 'Your Orders',
     href: '/customer/your-orders',
   },

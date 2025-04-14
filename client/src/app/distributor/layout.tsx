@@ -9,10 +9,6 @@ const distributorsNavItems: NavItem[] = [
     href: '/distributor',
   },
   {
-    title: 'Buy Product',
-    href: '/distributor/buy-product',
-  },
-  {
     title: 'Add for Shipping',
     href: '/distributor/add-for-shipping',
   },

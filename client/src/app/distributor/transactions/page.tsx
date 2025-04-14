@@ -1,170 +1,302 @@
-import React from 'react'
+'use client'
+import React, { useEffect, useState } from 'react'
+import { readContract, prepareContractCall, prepareEvent } from 'thirdweb'
+import { contract, client } from '@/lib/client'
+import { useContractEvents } from 'thirdweb/react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ExternalLink, Filter, Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
-export default function Transactions() {
+// Define types for events
+interface ContractEvent {
+  eventName: string
+  args: Record<string, any>
+  transaction: {
+    transactionHash: string
+    blockNumber: bigint
+    timestamp: number // Unix timestamp
+  }
+}
+
+const TransactionsPage = () => {
+  const [isLoading, setIsLoading] = useState(true)
+  const [events, setEvents] = useState<ContractEvent[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedEventType, setSelectedEventType] = useState<string | null>(null)
+
+  // Define the events we want to track
+  // const rawMaterialAddedEvent = {
+  //   signature: 'event RawMaterialAdded(uint256 id, address farmerId, string materialType, uint256 quantity, uint256 price, string location, bool isAvailable)',
+  // }
+
+  // const rawMaterialPurchasedEvent = {
+  //   signature: 'event RawMaterialPurchased(uint256 id, address buyer, uint256 price)',
+  // }
+
+  // const manufacturingStartedEvent = {
+  //   signature: 'event ManufacturingStarted(uint256 batchId, address manufacturer, uint256[] rawMaterialIds)',
+  // }
+
+  // Use the useContractEvents hook to listen for events
+  // Properly prepare each event using the prepareEvent function
+  const rawMaterialAddedEvent = prepareEvent({
+    signature: 'event RawMaterialAdded(uint256 indexed id, address indexed farmer, string qrCode, uint256 price)',
+  })
+
+  const rawMaterialSoldEvent = prepareEvent({
+    signature: 'event RawMaterialSold(uint256 indexed id, address indexed mill, uint256 price)',
+  })
+
+  const fabricAddedEvent = prepareEvent({
+    signature: 'event FabricAdded(uint256 indexed id, address indexed mill, string qrCode, uint256 price)',
+  })
+
+  const fabricSoldEvent = prepareEvent({
+    signature: 'event FabricSold(uint256 indexed id, address indexed manufacturer, uint256 price)',
+  })
+
+  const apparelAddedEvent = prepareEvent({
+    signature: 'event ApparelAdded(uint256 indexed id, address indexed manufacturer, string qrCode, uint256 price)',
+  })
+
+  const apparelSoldEvent = prepareEvent({
+    signature: 'event ApparelSold(uint256 indexed id, address indexed distributor, uint256 price)',
+  })
+
+  const packagedStockAddedEvent = prepareEvent({
+    signature: 'event PackagedStockAdded(uint256 indexed id, address indexed distributor, string qrCode, uint256 price)',
+  })
+
+  const packagedStockSoldEvent = prepareEvent({
+    signature: 'event PackagedStockSold(uint256 indexed id, address indexed retailer, uint256 price)',
+  })
+
+  const retailProductAddedEvent = prepareEvent({
+    signature: 'event RetailProductAdded(uint256 indexed id, address indexed retailer, string qrCode, uint256 price)',
+  })
+
+  const retailProductSoldEvent = prepareEvent({
+    signature: 'event RetailProductSold(uint256 indexed id, address indexed customer, uint256 price)',
+  })
+
+  const userRegisteredEvent = prepareEvent({
+    signature: 'event UserRegistered(address indexed account, string name, string role, string location)',
+  })
+
+  // Use all prepared events in the hook
+  const {
+    data: contractEvents,
+    isLoading: eventsLoading,
+    error,
+  } = useContractEvents({
+    contract,
+    events: [
+      rawMaterialAddedEvent,
+      rawMaterialSoldEvent,
+      fabricAddedEvent,
+      fabricSoldEvent,
+      apparelAddedEvent,
+      apparelSoldEvent,
+      packagedStockAddedEvent,
+      packagedStockSoldEvent,
+      retailProductAddedEvent,
+      retailProductSoldEvent,
+      userRegisteredEvent,
+    ],
+  })
+
+  useEffect(() => {
+    console.log(contractEvents)
+  }, [contractEvents])
+
+  // Process events when they're loaded
+  useEffect(() => {
+    if (contractEvents && !eventsLoading) {
+      console.log(contractEvents)
+      const processedEvents = contractEvents.map((event) => ({
+        eventName: event.eventName || 'Unknown Event',
+        args: event.args || {},
+        transaction: {
+          transactionHash: event.transactionHash || '',
+          blockNumber: event.blockNumber || BigInt(0),
+          timestamp: new Date().getTime() || 0,
+        },
+      }))
+
+      // Sort by timestamp (newest first)
+      processedEvents.sort((a, b) => b.transaction.timestamp - a.transaction.timestamp)
+
+      setEvents(processedEvents)
+      setIsLoading(false)
+    }
+  }, [contractEvents, eventsLoading])
+
+  // Format timestamp
+  const formatTimestamp = (timestamp: number) => {
+    if (!timestamp) return 'Unknown'
+    return new Date(timestamp * 1000).toLocaleString()
+  }
+
+  // Get unique event types for filtering
+  const eventTypes = [...new Set(events.map((event) => event.eventName))]
+
+  // Apply filters
+  const filteredEvents = events.filter((event) => {
+    // Filter by search term
+    const searchMatch =
+      event.eventName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      event.transaction.transactionHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      Object.values(event.args).some((arg) => arg && arg.toString().toLowerCase().includes(searchTerm.toLowerCase()))
+
+    // Filter by event type
+    const typeMatch = selectedEventType === null || event.eventName === selectedEventType
+
+    return searchMatch && typeMatch
+  })
+
+  // Get blockchain explorer URL
+  const getExplorerUrl = (txHash: string) => {
+    return `https://sepolia.etherscan.io/tx/${txHash}`
+  }
+
+  // Get event badge color
+  const getEventBadgeColor = (eventName: string) => {
+    switch (eventName) {
+      case 'RawMaterialAdded':
+        return 'bg-green-50 text-green-700'
+      case 'RawMaterialPurchased':
+        return 'bg-blue-50 text-blue-700'
+      case 'ManufacturingStarted':
+        return 'bg-purple-50 text-purple-700'
+      default:
+        return 'bg-gray-50 text-gray-700'
+    }
+  }
+
+  // Format argument values
+  const formatArgValue = (key: string, value: any): string => {
+    if (value === null || value === undefined) return 'N/A'
+
+    // Format based on key name
+    if (key === 'price') {
+      // Convert from Wei to ETH
+      return `${(Number(value) / 1e18).toFixed(4)} ETH`
+    } else if (key.toLowerCase().includes('id') && typeof value === 'bigint') {
+      // Format IDs
+      return `#${value.toString()}`
+    } else if (Array.isArray(value)) {
+      // Format arrays
+      return `[${value.join(', ')}]`
+    } else if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No'
+    }
+
+    // Default formatting
+    return value.toString()
+  }
+
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Transactions</h1>
+    <div className="flex flex-col min-h-screen p-6 bg-gray-50/40">
+      <h1 className="text-2xl font-semibold text-gray-900">Blockchain Transactions</h1>
+      <p className="mt-1 mb-6 text-sm text-gray-500">View all transactions and events recorded on the blockchain</p>
 
-      {/* Transaction Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-              Search Transactions
-            </label>
-            <input
-              type="text"
-              id="search"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Search by transaction ID, product..."
-            />
-          </div>
-          <div className="w-full md:w-48">
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select id="status" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-          <div className="w-full md:w-48">
-            <label htmlFor="date-range" className="block text-sm font-medium text-gray-700 mb-1">
-              Date Range
-            </label>
-            <select id="date-range" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="7">Last 7 days</option>
-              <option value="30">Last 30 days</option>
-              <option value="90">Last 90 days</option>
-              <option value="custom">Custom Range</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Transactions Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#TX-12345</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-04-10</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">Cotton T-Shirts</div>
-                  <div className="text-sm text-gray-500">Manufacturer: Fashion Co.</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">100</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$1,299.00</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Completed</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">View</button>
-                  <button className="text-gray-600 hover:text-gray-900">Download</button>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#TX-12344</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-04-09</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">Denim Jeans</div>
-                  <div className="text-sm text-gray-500">Manufacturer: DenimWorks</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">50</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$1,499.50</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">In Transit</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">View</button>
-                  <button className="text-gray-600 hover:text-gray-900">Download</button>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#TX-12343</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-04-08</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">Wool Sweaters</div>
-                  <div className="text-sm text-gray-500">Manufacturer: WarmWear</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">75</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$3,749.25</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Pending</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">View</button>
-                  <button className="text-gray-600 hover:text-gray-900">Download</button>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#TX-12342</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-04-07</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">Silk Scarves</div>
-                  <div className="text-sm text-gray-500">Manufacturer: Elegance</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">200</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$3,998.00</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Completed</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">View</button>
-                  <button className="text-gray-600 hover:text-gray-900">Download</button>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#TX-12341</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-04-06</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">Linen Tablecloths</div>
-                  <div className="text-sm text-gray-500">Manufacturer: HomeStyle</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">50</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$1,749.50</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Cancelled</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">View</button>
-                  <button className="text-gray-600 hover:text-gray-900">Download</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Showing <span className="font-medium">1</span> to <span className="font-medium">5</span> of <span className="font-medium">20</span> results
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-xl text-gray-900">Events</CardTitle>
+              <CardDescription className="mt-1 text-sm text-gray-500">{events.length} events recorded on the blockchain</CardDescription>
             </div>
-            <div className="flex space-x-2">
-              <button className="px-3 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">Previous</button>
-              <button className="px-3 py-1 rounded-md bg-blue-600 text-white">1</button>
-              <button className="px-3 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">2</button>
-              <button className="px-3 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">3</button>
-              <button className="px-3 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">Next</button>
+
+            <div className="flex flex-col gap-2 md:flex-row md:items-center">
+              <div className="relative">
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                <Input
+                  placeholder="Search events..."
+                  className="w-full h-10 pl-10 text-sm bg-white border-gray-200 md:w-64 placeholder:text-gray-400"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-400" />
+                <select className="h-10 px-3 text-sm bg-white border border-gray-200 rounded-md" value={selectedEventType || ''} onChange={(e) => setSelectedEventType(e.target.value || null)}>
+                  <option value="">All Events</option>
+                  {eventTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 border-b-2 rounded-full animate-spin border-primary"></div>
+              <span className="ml-2 text-gray-500">Loading events...</span>
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="py-12 text-center">
+              <h3 className="text-lg font-medium text-gray-900">No events found</h3>
+              <p className="mt-1 text-sm text-gray-500">{searchTerm || selectedEventType ? 'Try adjusting your search or filters' : 'No blockchain events have been recorded yet'}</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-gray-200">
+                    <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Event Type</TableHead>
+                    <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Details</TableHead>
+                    <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Block Number</TableHead>
+                    {/* <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Timestamp</TableHead> */}
+                    <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEvents.map((event, index) => (
+                    <TableRow key={index} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
+                      <TableCell className="p-4">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getEventBadgeColor(event.eventName)}`}>{event.eventName}</span>
+                      </TableCell>
+                      <TableCell className="p-4">
+                        <div className="space-y-1">
+                          {Object.entries(event.args).map(([key, value], i) => (
+                            <div key={i} className="text-xs text-gray-600">
+                              <span className="font-medium text-gray-700">{key}:</span> {formatArgValue(key, value)}
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="p-4 text-sm text-gray-600">{event.transaction.blockNumber.toString()}</TableCell>
+                      {/* <TableCell className="p-4 text-sm text-gray-600">{formatTimestamp(event.transaction.timestamp)}</TableCell> */}
+                      <TableCell className="p-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(getExplorerUrl(event.transaction.transactionHash), '_blank')}
+                          className="h-8 text-gray-600 border-gray-200 hover:text-gray-900 hover:border-gray-300"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
+
+export default TransactionsPage

@@ -42,6 +42,7 @@ export default function Page() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [isFetchingLoading, setIsFetchingLoading] = useState(false)
   const [isRegisteringUser, setIsRegisteringUser] = useState(false)
+  const [location, setLocation] = useState('')
   const [showRegistration, setShowRegistration] = useState(false)
   const account = useActiveAccount()
   const router = useRouter()
@@ -74,6 +75,16 @@ export default function Page() {
     if (!userDetails) {
       // User doesn't exist, show registration form
       setShowRegistration(true)
+      return
+    }
+
+    if (userDetails && userDetails.role === '') {
+      console.log('userDetails', userDetails)
+      setShowRegistration(true)
+      return
+    }
+
+    if (selectedRole == null) {
       return
     }
 
@@ -131,8 +142,8 @@ export default function Page() {
       showLoading('Registering your account...')
       const transaction = prepareContractCall({
         contract,
-        method: 'function registerUser(string _name, string _role) returns (uint256)',
-        params: [name, selectedRole],
+        method: 'function registerUser(string _name, string _role, string _location) returns (uint256)',
+        params: [name, selectedRole, location],
       })
 
       await sendTx(transaction)
@@ -263,6 +274,12 @@ export default function Page() {
                     onChange={(e) => setName(e.target.value)}
                     className="h-10 border focus:outline-none focus:ring-0 border-input bg-background"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="location" className="text-sm font-medium">
+                    Location
+                  </Label>
+                  <Input id="location" placeholder="Enter your location" />
                 </div>
 
                 <Button onClick={registerUser} className="w-full mt-2" disabled={!name || isRegisteringUser}>

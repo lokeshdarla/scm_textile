@@ -5,12 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ExternalLink, Package, Plus, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { useActiveAccount, useContractEvents, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useContractEvents, useReadContract, useSendTransaction } from 'thirdweb/react'
 import { useLoading } from '@/components/providers/loading-provider'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { prepareContractCall } from 'thirdweb'
+import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
 import { parseEther } from 'viem'
@@ -60,33 +60,9 @@ export default function FarmerDashboard() {
   const router = useRouter()
 
   // Define the event we want to listen for
-  const rawMaterialAddedEvent = {
-    signature: 'event RawMaterialAdded(uint256 id, address farmerId, string materialType, uint256 quantity, uint256 price, string location, bool isAvailable)',
-  }
-
   const { data: contractEvents } = useContractEvents({
     contract,
   })
-
-  // Check authentication on component mount
-  // useEffect(() => {
-  //   const checkAuth = async () => {
-  //     try {
-  //       const loggedIn = await isLoggedIn()
-  //       if (!loggedIn) {
-  //         toast.error('Authentication required', {
-  //           description: 'Please log in to access the dashboard',
-  //         })
-  //         router.push('/login')
-  //       }
-  //     } catch (error) {
-  //       console.error('Auth check failed:', error)
-  //       router.push('/login')
-  //     }
-  //   }
-
-  //   checkAuth()
-  // }, [router])
 
   // Check if user is connected
   useEffect(() => {
@@ -100,53 +76,74 @@ export default function FarmerDashboard() {
     }
   }, [activeAccount, router])
 
-  // Load data from the blockchain
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true)
-      showLoading('Loading materials from blockchain...')
+  // Fetch raw materials
+  const fetchRawMaterials = async () => {
+    setIsLoading(true)
+    showLoading('Loading raw materials...')
 
-      try {
-        console.log(contractEvents)
-        // This would typically be a call to your contract to get the raw materials
-        // For now, we'll parse the events to create our materials list
-        if (contractEvents && contractEvents.length > 0) {
-          const materialsFromEvents: RawMaterial[] = contractEvents.map((event, index) => {
-            const args = event.args as any
-            return {
-              id: args.id || BigInt(index + 1),
-              farmerId: args.farmerId || BigInt(0),
-              materialType: args.materialType || 'Unknown',
-              quantity: args.quantity || BigInt(0),
-              price: args.price || BigInt(0),
-              location: args.location || 'Unknown',
-              isAvailable: args.isAvailable !== undefined ? args.isAvailable : true,
-              transactionHash: event.transactionHash,
-            }
+    try {
+      // First, get all raw material IDs
+      const rawMaterialIds = await readContract({
+        contract,
+        method: 'function getAllRawMaterials() view returns (uint256[])',
+        params: [],
+      })
+
+      if (!rawMaterialIds || rawMaterialIds.length === 0) {
+        setRawMaterials([])
+        return
+      }
+
+      // Then fetch details for each raw material
+      const materialList: RawMaterial[] = []
+
+      for (const id of rawMaterialIds) {
+        try {
+          const materialData = await readContract({
+            contract,
+            method:
+              'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price))',
+            params: [id],
           })
 
-          setRawMaterials(materialsFromEvents)
-        } else {
-          // If no events yet, start with empty array
-          setRawMaterials([])
-        }
-      } catch (error) {
-        console.error('Error loading raw materials:', error)
-        toast.error('Failed to load raw materials', {
-          description: 'Please check your connection and try again',
-        })
-        // Set empty array on error
-        setRawMaterials([])
-      } finally {
-        setIsLoading(false)
-        hideLoading()
-      }
-    }
+          if (materialData) {
+            // Convert the contract data to our RawMaterial interface
+            const material: RawMaterial = {
+              id: materialData.id,
+              farmerId: BigInt(materialData.farmer),
+              materialType: materialData.rawMaterialType,
+              quantity: materialData.quantity,
+              price: materialData.price,
+              location: materialData.name, // Using name as location for now
+              isAvailable: materialData.isAvailable,
+              buyer: materialData.mill !== '0x0000000000000000000000000000000000000000' ? materialData.mill : undefined,
+            }
 
-    if (activeAccount?.address) {
-      loadData()
+            materialList.push(material)
+          }
+        } catch (error) {
+          console.error(`Error fetching raw material with ID ${id}:`, error)
+          // Continue with other materials even if one fails
+        }
+      }
+
+      setRawMaterials(materialList)
+    } catch (error) {
+      console.error('Error loading raw materials:', error)
+      toast.error('Failed to load raw materials', {
+        description: 'Please check your connection and try again',
+      })
+      setRawMaterials([])
+    } finally {
+      setIsLoading(false)
+      hideLoading()
     }
-  }, [activeAccount, contractEvents, hideLoading, showLoading])
+  }
+
+  // Load data from the blockchain on component mount
+  useEffect(() => {
+    fetchRawMaterials()
+  }, [])
 
   // Filter raw materials based on search term
   const filteredMaterials = rawMaterials.filter(
@@ -292,6 +289,19 @@ export default function FarmerDashboard() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              <Button onClick={fetchRawMaterials} variant="outline" className="border-gray-200" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-b-2 rounded-full animate-spin border-primary"></div>
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Package className="w-4 h-4 mr-2" />
+                    Refresh
+                  </>
+                )}
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="flex-1 p-0 overflow-hidden">
