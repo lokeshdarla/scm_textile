@@ -84,11 +84,11 @@ export default function FarmerDashboard() {
           const materialData = await readContract({
             contract,
             method:
-              'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price, string location, bool isUsedForFabric))',
+              'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price, bool isUsedForFabric))',
             params: [id],
           })
 
-          if (materialData) {
+          if (materialData && materialData.farmer === activeAccount?.address) {
             // Convert the contract data to our RawMaterial interface
             const material: RawMaterial = {
               id: materialData.id,
@@ -96,7 +96,7 @@ export default function FarmerDashboard() {
               materialType: materialData.rawMaterialType,
               quantity: materialData.quantity,
               price: materialData.price,
-              location: materialData.location,
+              location: 'N/A',
               isAvailable: materialData.isAvailable,
               isUsedForFabric: materialData.isUsedForFabric,
               buyer: materialData.mill !== '0x0000000000000000000000000000000000000000' ? materialData.mill : undefined,

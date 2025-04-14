@@ -29,21 +29,6 @@ const TransactionsPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null)
 
-  // Define the events we want to track
-  // const rawMaterialAddedEvent = {
-  //   signature: 'event RawMaterialAdded(uint256 id, address farmerId, string materialType, uint256 quantity, uint256 price, string location, bool isAvailable)',
-  // }
-
-  // const rawMaterialPurchasedEvent = {
-  //   signature: 'event RawMaterialPurchased(uint256 id, address buyer, uint256 price)',
-  // }
-
-  // const manufacturingStartedEvent = {
-  //   signature: 'event ManufacturingStarted(uint256 batchId, address manufacturer, uint256[] rawMaterialIds)',
-  // }
-
-  // Use the useContractEvents hook to listen for events
-  // Properly prepare each event using the prepareEvent function
   const rawMaterialAddedEvent = prepareEvent({
     signature: 'event RawMaterialAdded(uint256 indexed id, address indexed farmer, string qrCode, uint256 price)',
   })
@@ -203,7 +188,7 @@ const TransactionsPage = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen p-6 bg-gray-50/40">
+    <div className="flex flex-col p-6 overflow-y-auto bg-gray-50/40">
       <h1 className="text-2xl font-semibold text-gray-900">Blockchain Transactions</h1>
       <p className="mt-1 mb-6 text-sm text-gray-500">View all transactions and events recorded on the blockchain</p>
 
@@ -264,7 +249,7 @@ const TransactionsPage = () => {
                     <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="max-h-[60vh] overflow-y-auto">
                   {filteredEvents.map((event, index) => (
                     <TableRow key={index} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
                       <TableCell className="p-4">
