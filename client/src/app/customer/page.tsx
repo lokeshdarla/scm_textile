@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { readContract } from 'thirdweb'
-import { useActiveAccount } from 'thirdweb/react'
+import { readContract, prepareContractCall } from 'thirdweb'
+import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
 import { contract } from '@/lib/client'
 import { useLoading } from '@/components/providers/loading-provider'
 import { Button } from '@/components/ui/button'
@@ -18,22 +18,12 @@ export default function RetailProductsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [retailProducts, setRetailProducts] = useState<RetailProduct[]>([])
+  const { mutateAsync: sendTx } = useSendTransaction()
+  const [selectedProduct, setSelectedProduct] = useState<RetailProduct | null>(null)
 
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const router = useRouter()
-
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
 
   // Fetch retail products
   const fetchRetailProducts = async () => {
@@ -85,6 +75,56 @@ export default function RetailProductsPage() {
       setRetailProducts([])
     } finally {
       setIsLoading(false)
+      hideLoading()
+    }
+  }
+
+  const buyProduct = async (productId: bigint) => {
+    showLoading('Buying product...')
+
+    // Find the product first
+    const product = retailProducts.find((product) => product.id === productId)
+    if (!product) {
+      toast.error('Product not found', {
+        description: 'The selected product could not be found',
+      })
+      hideLoading()
+      return
+    }
+
+    // Set the selected product
+    setSelectedProduct(product)
+
+    try {
+      // Prepare the transaction with the correct price
+      const transaction = await prepareContractCall({
+        contract,
+        method: 'function buyRetailProduct(uint256 retailProductId) payable',
+        params: [productId],
+        value: product.price, // Use the product's price directly
+      })
+
+      // Send the transaction
+      const tx = await sendTx(transaction)
+
+      // Check transaction success
+      if (tx.transactionHash) {
+        toast.success('Product purchased successfully', {
+          description: `You have purchased ${product.name}`,
+          duration: 5000,
+        })
+
+        // Refresh the product list to show updated availability
+        fetchRetailProducts()
+      } else {
+        throw new Error('Transaction failed')
+      }
+    } catch (error) {
+      console.error('Error buying product:', error)
+      toast.error('Failed to buy product', {
+        description: 'Please check your connection and try again',
+      })
+    } finally {
       hideLoading()
     }
   }
@@ -168,6 +208,7 @@ export default function RetailProductsPage() {
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Status</TableHead>
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Date Added</TableHead>
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -186,6 +227,11 @@ export default function RetailProductsPage() {
                             </span>
                           </TableCell>
                           <TableCell className="p-4 text-sm text-gray-600">{formatDate(product.timestamp)}</TableCell>
+                          <TableCell className="p-4 text-sm text-gray-600">
+                            <Button onClick={() => buyProduct(product.id)} className="bg-primary hover:bg-primary/90">
+                              Buy
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

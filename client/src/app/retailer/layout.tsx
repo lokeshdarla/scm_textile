@@ -1,5 +1,5 @@
 'use client'
-import React from 'react'
+import React, { useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import { NavItem } from '../components/Sidebar'
 import { useActiveAccount } from 'thirdweb/react'
@@ -30,6 +30,9 @@ const retailersNavItems: NavItem[] = [
 export default function ManufacturersLayout({ children }: { children: React.ReactNode }) {
   const activeAccount = useActiveAccount()
   const router = useRouter()
+  useEffect(() => {
+    checkUserRole()
+  }, [activeAccount])
   const checkUserRole = async () => {
     try {
       if (!activeAccount?.address) {

@@ -29,13 +29,15 @@ export default function DistributorDashboard() {
   // Fetch available apparels
 
   // Fetch details for each apparel
+
+  const { data: availableApparelIds, isFetched: isIdsFetched } = useReadContract({
+    contract,
+    method: 'function getALlApparels() view returns (uint256[])',
+    params: [],
+  })
+
   useEffect(() => {
     const fetchApparelDetails = async () => {
-      const { data: availableApparelIds, isFetched: isIdsFetched } = useReadContract({
-        contract,
-        method: 'function getALlApparels() view returns (uint256[])',
-        params: [],
-      })
       if (!availableApparelIds || !isIdsFetched) return
 
       setIsLoading(true)

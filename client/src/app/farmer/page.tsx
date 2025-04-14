@@ -19,6 +19,7 @@ import { sepolia } from 'thirdweb/chains'
 import { client } from '@/lib/client'
 // Define form data interface
 interface FormData {
+  name: string
   materialType: string
   quantity: string
   price: string
@@ -34,6 +35,7 @@ export default function FarmerDashboard() {
   const [addMaterialDialogOpen, setAddMaterialDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState<FormData>({
+    name: '',
     materialType: '',
     quantity: '',
     price: '',
@@ -130,127 +132,122 @@ export default function FarmerDashboard() {
   }, [activeAccount, hideLoading, showLoading])
 
   // Handle adding new raw material with useEffect for form submission
-  useEffect(() => {
-    if (!isSubmitting) return
+  const addMaterial = async () => {
+    showLoading('Adding new raw material to blockchain...')
 
-    const addMaterial = async () => {
-      showLoading('Adding new raw material to blockchain...')
-
-      // Validate inputs (can be moved outside this effect if preferred)
-      if (!formData.materialType || !formData.quantity || !formData.price || !formData.location) {
-        toast.error('Missing information', {
-          description: 'Please fill in all required fields',
-        })
-        setIsSubmitting(false)
-        hideLoading()
-        return
-      }
-
-      // Validate numeric inputs
-      const quantity = parseInt(formData.quantity)
-      const price = parseFloat(formData.price)
-
-      if (isNaN(quantity) || quantity <= 0) {
-        toast.error('Invalid quantity', {
-          description: 'Please enter a valid positive number',
-        })
-        setIsSubmitting(false)
-        hideLoading()
-        return
-      }
-
-      if (isNaN(price) || price <= 0) {
-        toast.error('Invalid price', {
-          description: 'Please enter a valid positive price',
-        })
-        setIsSubmitting(false)
-        hideLoading()
-        return
-      }
-
-      const data = {
-        name: formData.materialType,
-        quantity: formData.quantity,
-        price: formData.price,
-        location: formData.location,
-        description: formData.description,
-        unit: formData.unit,
-        walletAddress: activeAccount?.address,
-        timestamp: new Date().toISOString(),
-      }
-
-      try {
-        const qrCode = await uploadJsonDirect(data)
-
-        // Convert price from ETH to Wei
-        const priceInWei = parseEther(formData.price)
-
-        // Prepare the contract call
-        const transaction = await prepareContractCall({
-          contract,
-          method: 'function addRawMaterial(string qrCode, string name, string rawMaterialType, uint256 quantity, uint256 price)',
-          params: [qrCode.cid, formData.materialType, formData.materialType, BigInt(quantity), priceInWei],
-        })
-
-        // Send the transaction
-        const tx = await sendTx(transaction)
-
-        // Check transaction success
-        if (tx.transactionHash) {
-          toast.success('Raw material added successfully!', {
-            description: `Your raw material has been added to the blockchain`,
-            duration: 5000,
-          })
-
-          // Create new material object with transaction hash
-          const newId = BigInt(rawMaterials.length + 1)
-          const newRawMaterial: RawMaterial = {
-            id: newId,
-            farmerId: BigInt(activeAccount?.address || 0),
-            materialType: formData.materialType,
-            quantity: BigInt(quantity),
-            price: priceInWei,
-            location: formData.location,
-            isAvailable: true,
-            transactionHash: tx.transactionHash,
-            isUsedForFabric: false,
-          }
-
-          // Add to local state
-          setRawMaterials((prevMaterials) => [...prevMaterials, newRawMaterial])
-
-          // Reset form and close dialog
-          setFormData({
-            materialType: '',
-            quantity: '',
-            price: '',
-            location: '',
-            description: '',
-            unit: 'kg',
-          })
-
-          setAddMaterialDialogOpen(false)
-        } else {
-          throw new Error('Transaction failed')
-        }
-      } catch (error) {
-        console.error('Error submitting form:', error)
-        toast.error('Failed to add raw material', {
-          description: 'Please try again or check your wallet connection',
-        })
-      } finally {
-        setIsSubmitting(false)
-        hideLoading()
-      }
+    // Validate inputs (can be moved outside this effect if preferred)
+    if (!formData.materialType || !formData.quantity || !formData.price || !formData.location) {
+      toast.error('Missing information', {
+        description: 'Please fill in all required fields',
+      })
+      setIsSubmitting(false)
+      hideLoading()
+      return
     }
 
-    addMaterial()
-  }, [isSubmitting, formData, activeAccount, hideLoading, showLoading, sendTx, rawMaterials])
+    // Validate numeric inputs
+    const quantity = parseInt(formData.quantity)
+    const price = parseFloat(formData.price)
 
+    if (isNaN(quantity) || quantity <= 0) {
+      toast.error('Invalid quantity', {
+        description: 'Please enter a valid positive number',
+      })
+      setIsSubmitting(false)
+      hideLoading()
+      return
+    }
+
+    if (isNaN(price) || price <= 0) {
+      toast.error('Invalid price', {
+        description: 'Please enter a valid positive price',
+      })
+      setIsSubmitting(false)
+      hideLoading()
+      return
+    }
+
+    const data = {
+      name: formData.materialType,
+      quantity: formData.quantity,
+      price: formData.price,
+      location: formData.location,
+      description: formData.description,
+      unit: formData.unit,
+      walletAddress: activeAccount?.address,
+      timestamp: new Date().toISOString(),
+    }
+
+    try {
+      const qrCode = await uploadJsonDirect(data)
+
+      // Convert price from ETH to Wei
+      const priceInWei = parseEther(formData.price)
+
+      // Prepare the contract call
+      const transaction = await prepareContractCall({
+        contract,
+        method: 'function addRawMaterial(string qrCode, string name, string rawMaterialType, uint256 quantity, uint256 price)',
+        params: [qrCode.cid, formData.name, formData.materialType, BigInt(quantity), priceInWei],
+      })
+
+      // Send the transaction
+      const tx = await sendTx(transaction)
+
+      // Check transaction success
+      if (tx.transactionHash) {
+        toast.success('Raw material added successfully!', {
+          description: `Your raw material has been added to the blockchain`,
+          duration: 5000,
+        })
+
+        // Create new material object with transaction hash
+        const newId = BigInt(rawMaterials.length + 1)
+        const newRawMaterial: RawMaterial = {
+          id: newId,
+          farmerId: BigInt(activeAccount?.address || 0),
+          materialType: formData.materialType,
+          quantity: BigInt(quantity),
+          price: priceInWei,
+          location: formData.location,
+          isAvailable: true,
+          transactionHash: tx.transactionHash,
+          isUsedForFabric: false,
+        }
+
+        // Add to local state
+        setRawMaterials((prevMaterials) => [...prevMaterials, newRawMaterial])
+
+        // Reset form and close dialog
+        setFormData({
+          name: '',
+          materialType: '',
+          quantity: '',
+          price: '',
+          location: '',
+          description: '',
+          unit: 'kg',
+        })
+
+        setAddMaterialDialogOpen(false)
+      } else {
+        throw new Error('Transaction failed')
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      toast.error('Failed to add raw material', {
+        description: 'Please try again or check your wallet connection',
+      })
+    } finally {
+      setIsSubmitting(false)
+      hideLoading()
+    }
+  }
   // Form submission handler - now just sets isSubmitting to true
   const handleAddMaterial = (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    addMaterial()
   }
 
   // Filter raw materials based on search term
@@ -420,6 +417,19 @@ export default function FarmerDashboard() {
           </DialogHeader>
           <form onSubmit={handleAddMaterial}>
             <div className="grid gap-4 py-4">
+              <div className="grid items-center grid-cols-4 gap-4">
+                <Label htmlFor="name" className="text-sm text-right text-gray-500">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="h-10 col-span-3 border-gray-200"
+                  placeholder="Cotton, Wool, etc."
+                  required
+                />
+              </div>
               <div className="grid items-center grid-cols-4 gap-4">
                 <Label htmlFor="materialType" className="text-sm text-right text-gray-500">
                   Type

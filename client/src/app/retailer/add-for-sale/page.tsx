@@ -101,7 +101,7 @@ export default function AddForSalePage() {
     if (activeAccount?.address && retailerStockIds && isIdsFetched) {
       fetchStockDetails()
     }
-  }, [activeAccount, retailerStockIds, isIdsFetched, hideLoading, showLoading])
+  }, [activeAccount, retailerStockIds, isIdsFetched])
 
   // Filter stocks based on search term
   const filteredStocks = packagedStocks.filter((stock) => stock.name.toLowerCase().includes(searchTerm.toLowerCase()) || stock.qrCode.toLowerCase().includes(searchTerm.toLowerCase()))

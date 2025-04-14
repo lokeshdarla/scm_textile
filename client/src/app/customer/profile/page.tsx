@@ -1,252 +1,344 @@
-import React from 'react'
+'use client'
 
-export default function Profile() {
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { readContract, prepareContractCall } from 'thirdweb'
+import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
+import { contract } from '@/lib/client'
+import { useLoading } from '@/components/providers/loading-provider'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Package, User, History, RefreshCw, QrCode } from 'lucide-react'
+import { RetailProduct } from '@/constants'
+
+export default function CustomerProfilePage() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [purchasedProducts, setPurchasedProducts] = useState<RetailProduct[]>([])
+  const [accountInfo, setAccountInfo] = useState<{
+    address: string
+    balance: string
+  } | null>(null)
+  const { mutateAsync: sendTx } = useSendTransaction()
+  const activeAccount = useActiveAccount()
+  const { showLoading, hideLoading } = useLoading()
+  const router = useRouter()
+
+  // Fetch purchased products
+  const fetchPurchasedProducts = async () => {
+    if (!activeAccount?.address) return
+
+    setIsLoading(true)
+    showLoading('Loading your purchased products...')
+
+    try {
+      // Get all retail product IDs
+      let retailProductIds = await readContract({
+        contract,
+        method: 'function getAllRetailProducts() view returns (uint256[])',
+        params: [],
+      })
+
+      // Fetch details for each retail product
+      const products: RetailProduct[] = []
+
+      for (const id of retailProductIds) {
+        try {
+          const productData = await readContract({
+            contract,
+            method:
+              'function getRetailProduct(uint256 retailProductId) view returns ((uint256 id, address retailer, address customer, string qrCode, uint256[] packagedStockIds, bool isAvailable, uint256 timestamp, string name, uint256 price, string brand, bool isUsedForCustomer))',
+            params: [id],
+          })
+
+          // Only include products purchased by the current user
+          if (productData && productData.customer.toLowerCase() === activeAccount.address.toLowerCase() && !productData.isAvailable) {
+            products.push(productData)
+          }
+        } catch (error) {
+          console.error(`Error fetching retail product with ID ${id}:`, error)
+          // Continue with other products even if one fails
+        }
+      }
+
+      setPurchasedProducts(products)
+    } catch (error) {
+      console.error('Error loading purchased products:', error)
+      toast.error('Failed to load purchased products', {
+        description: 'Please check your connection and try again',
+      })
+      setPurchasedProducts([])
+    } finally {
+      setIsLoading(false)
+      hideLoading()
+    }
+  }
+
+  // Fetch account information
+  const fetchAccountInfo = async () => {
+    if (!activeAccount?.address) return
+
+    try {
+      // Get account balance
+      const balance = await readContract({
+        contract,
+        method: 'function getBalance() view returns (uint256)',
+        params: [activeAccount.address],
+      })
+
+      setAccountInfo({
+        address: activeAccount.address,
+        balance: balance ? (Number(balance) / 1e18).toFixed(4) : '0',
+      })
+    } catch (error) {
+      console.error('Error fetching account info:', error)
+      setAccountInfo({
+        address: activeAccount.address,
+        balance: '0',
+      })
+    }
+  }
+
+  // Initial fetch
+  useEffect(() => {
+    if (activeAccount?.address) {
+      fetchPurchasedProducts()
+      fetchAccountInfo()
+    } else {
+      router.push('/')
+    }
+  }, [activeAccount])
+
+  // Format price from Wei to ETH
+  const formatPrice = (price: bigint) => {
+    return (Number(price) / 1e18).toFixed(4)
+  }
+
+  // Format timestamp to readable date
+  const formatDate = (timestamp: bigint) => {
+    return new Date(Number(timestamp) * 1000).toLocaleDateString()
+  }
+
+  // Format address to show only first and last few characters
+  const formatAddress = (address: string) => {
+    if (!address) return ''
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`
+  }
+
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Profile</h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Information */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6">
-              <div className="flex flex-col items-center">
-                <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center mb-4">
-                  <svg className="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                  </svg>
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900">John Doe</h2>
-                <p className="text-sm text-gray-500">Customer</p>
-                <div className="mt-4 flex space-x-2">
-                  <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Edit Profile</button>
-                  <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">Change Password</button>
-                </div>
-              </div>
-
-              <div className="mt-6 border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Contact Information</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
-                    <p className="mt-1 text-sm text-gray-900">john.doe@example.com</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Phone</label>
-                    <p className="mt-1 text-sm text-gray-900">+1 (555) 123-4567</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Address</label>
-                    <p className="mt-1 text-sm text-gray-900">123 Main St, Apt 4B</p>
-                    <p className="text-sm text-gray-900">New York, NY 10001</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
+      <div className="p-6 pb-0">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Customer Profile</h1>
+            <p className="mt-1 text-sm text-gray-500">View your account information and purchased products</p>
           </div>
+          <Button
+            onClick={() => {
+              fetchPurchasedProducts()
+              fetchAccountInfo()
+            }}
+            disabled={isLoading}
+            className="bg-primary hover:bg-primary/90"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
+      </div>
 
-        {/* Account Settings */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Account Settings</h2>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    defaultValue="John Doe"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    defaultValue="john.doe@example.com"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    defaultValue="+1 (555) 123-4567"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    id="address"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    defaultValue="123 Main St, Apt 4B"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      id="city"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      defaultValue="New York"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="state" className="block text-sm font-medium text-gray-700">
-                      State
-                    </label>
-                    <input
-                      type="text"
-                      id="state"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      defaultValue="NY"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="zip" className="block text-sm font-medium text-gray-700">
-                      ZIP Code
-                    </label>
-                    <input
-                      type="text"
-                      id="zip"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      defaultValue="10001"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="country" className="block text-sm font-medium text-gray-700">
-                      Country
-                    </label>
-                    <select
-                      id="country"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      defaultValue="US"
-                    >
-                      <option value="US">United States</option>
-                      <option value="CA">Canada</option>
-                      <option value="UK">United Kingdom</option>
-                      <option value="AU">Australia</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="pt-4">
-                  <button className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="flex-1 px-6 pb-6 overflow-hidden">
+        <Tabs defaultValue="account" className="h-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="account" className="flex items-center">
+              <User className="w-4 h-4 mr-2" />
+              Account
+            </TabsTrigger>
+            <TabsTrigger value="products" className="flex items-center">
+              <Package className="w-4 h-4 mr-2" />
+              Purchased Products
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center">
+              <History className="w-4 h-4 mr-2" />
+              Purchase History
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Notification Preferences */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Notification Preferences</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">Email Notifications</h3>
-                    <p className="text-sm text-gray-500">Receive order updates and promotions via email</p>
+          <TabsContent value="account" className="h-[calc(100%-60px)]">
+            <Card className="h-full border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-900">Account Information</CardTitle>
+                <CardDescription className="mt-1 text-sm text-gray-500">Your account details and balance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {accountInfo ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="p-4 bg-white rounded-lg shadow-sm">
+                        <h3 className="text-sm font-medium text-gray-500">Wallet Address</h3>
+                        <p className="mt-1 text-lg font-medium text-gray-900">{formatAddress(accountInfo.address)}</p>
+                        <p className="mt-1 text-xs text-gray-500">{accountInfo.address}</p>
+                      </div>
+                      <div className="p-4 bg-white rounded-lg shadow-sm">
+                        <h3 className="text-sm font-medium text-gray-500">Account Balance</h3>
+                        <p className="mt-1 text-lg font-medium text-gray-900">{accountInfo.balance} ETH</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-white rounded-lg shadow-sm">
+                      <h3 className="text-sm font-medium text-gray-500">Account Summary</h3>
+                      <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-3">
+                        <div>
+                          <p className="text-sm text-gray-500">Total Purchases</p>
+                          <p className="mt-1 text-lg font-medium text-gray-900">{purchasedProducts.length}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Total Spent</p>
+                          <p className="mt-1 text-lg font-medium text-gray-900">{purchasedProducts.reduce((total, product) => total + Number(product.price), 0) / 1e18} ETH</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Member Since</p>
+                          <p className="mt-1 text-lg font-medium text-gray-900">
+                            {purchasedProducts.length > 0
+                              ? formatDate(
+                                  purchasedProducts.reduce((earliest, product) => (Number(product.timestamp) < Number(earliest.timestamp) ? product : earliest), purchasedProducts[0]).timestamp
+                                )
+                              : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    className="relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 bg-blue-600"
-                    role="switch"
-                    aria-checked="true"
-                  >
-                    <span className="translate-x-5 pointer-events-none relative inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200">
-                      <span className="absolute inset-0 h-full w-full flex items-center justify-center transition-opacity" aria-hidden="true">
-                        <svg className="h-3 w-3 text-blue-600" fill="currentColor" viewBox="0 0 12 12">
-                          <path d="M3.707 5.293a1 1 0 00-1.414 1.414l1.414-1.414zM5 8l-.707.707a1 1 0 001.414 0L5 8zm4.707-3.293a1 1 0 00-1.414-1.414l1.414 1.414zm-7.414 2l2 2 1.414-1.414-2-2-1.414 1.414zm3.414 2l4-4-1.414-1.414-4 4 1.414 1.414z" />
-                        </svg>
-                      </span>
-                    </span>
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">SMS Notifications</h3>
-                    <p className="text-sm text-gray-500">Receive order updates and promotions via SMS</p>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-8 h-8 border-b-2 rounded-full animate-spin border-primary"></div>
+                    <span className="ml-2 text-gray-500">Loading account information...</span>
                   </div>
-                  <button
-                    className="relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 bg-gray-200"
-                    role="switch"
-                    aria-checked="false"
-                  >
-                    <span className="translate-x-0 pointer-events-none relative inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200">
-                      <span className="absolute inset-0 h-full w-full flex items-center justify-center transition-opacity opacity-0" aria-hidden="true">
-                        <svg className="h-3 w-3 text-gray-400" fill="currentColor" viewBox="0 0 12 12">
-                          <path d="M3.707 5.293a1 1 0 00-1.414 1.414l1.414-1.414zM5 8l-.707.707a1 1 0 001.414 0L5 8zm4.707-3.293a1 1 0 00-1.414-1.414l1.414 1.414zm-7.414 2l2 2 1.414-1.414-2-2-1.414 1.414zm3.414 2l4-4-1.414-1.414-4 4 1.414 1.414z" />
-                        </svg>
-                      </span>
-                    </span>
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">Order Updates</h3>
-                    <p className="text-sm text-gray-500">Receive notifications about your order status</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="products" className="h-[calc(100%-60px)]">
+            <Card className="h-full border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-900">Purchased Products</CardTitle>
+                <CardDescription className="mt-1 text-sm text-gray-500">Products you have purchased</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-8 h-8 border-b-2 rounded-full animate-spin border-primary"></div>
+                    <span className="ml-2 text-gray-500">Loading products...</span>
                   </div>
-                  <button
-                    className="relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 bg-blue-600"
-                    role="switch"
-                    aria-checked="true"
-                  >
-                    <span className="translate-x-5 pointer-events-none relative inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200">
-                      <span className="absolute inset-0 h-full w-full flex items-center justify-center transition-opacity" aria-hidden="true">
-                        <svg className="h-3 w-3 text-blue-600" fill="currentColor" viewBox="0 0 12 12">
-                          <path d="M3.707 5.293a1 1 0 00-1.414 1.414l1.414-1.414zM5 8l-.707.707a1 1 0 001.414 0L5 8zm4.707-3.293a1 1 0 00-1.414-1.414l1.414 1.414zm-7.414 2l2 2 1.414-1.414-2-2-1.414 1.414zm3.414 2l4-4-1.414-1.414-4 4 1.414 1.414z" />
-                        </svg>
-                      </span>
-                    </span>
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">Marketing Communications</h3>
-                    <p className="text-sm text-gray-500">Receive promotions, discounts, and product recommendations</p>
+                ) : purchasedProducts.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium text-gray-900">No purchased products</h3>
+                    <p className="mt-1 text-sm text-gray-500">You haven't purchased any products yet</p>
+                    <Button onClick={() => router.push('/customer')} className="mt-4 bg-primary hover:bg-primary/90">
+                      Browse Products
+                    </Button>
                   </div>
-                  <button
-                    className="relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 bg-gray-200"
-                    role="switch"
-                    aria-checked="false"
-                  >
-                    <span className="translate-x-0 pointer-events-none relative inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200">
-                      <span className="absolute inset-0 h-full w-full flex items-center justify-center transition-opacity opacity-0" aria-hidden="true">
-                        <svg className="h-3 w-3 text-gray-400" fill="currentColor" viewBox="0 0 12 12">
-                          <path d="M3.707 5.293a1 1 0 00-1.414 1.414l1.414-1.414zM5 8l-.707.707a1 1 0 001.414 0L5 8zm4.707-3.293a1 1 0 00-1.414-1.414l1.414 1.414zm-7.414 2l2 2 1.414-1.414-2-2-1.414 1.414zm3.414 2l4-4-1.414-1.414-4 4 1.414 1.414z" />
-                        </svg>
-                      </span>
-                    </span>
-                  </button>
-                </div>
-                <div className="pt-4">
-                  <button className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    Save Preferences
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                ) : (
+                  <div className="overflow-auto max-h-[600px] border rounded-md">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-gray-50/80 backdrop-blur supports-[backdrop-filter]:bg-gray-50/60">
+                        <TableRow className="border-b border-gray-200">
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">ID</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Name</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Brand</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Purchase Date</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {purchasedProducts.map((product) => (
+                          <TableRow key={product.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
+                            <TableCell className="p-4 text-sm font-medium text-gray-900">#{product.id.toString()}</TableCell>
+                            <TableCell className="p-4 text-sm text-gray-900">{product.name}</TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600 capitalize">{product.brand}</TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600">
+                              <div className="flex items-center">
+                                <QrCode className="w-4 h-4 mr-2 text-gray-400" />
+                                {product.qrCode}
+                              </div>
+                            </TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600">{formatPrice(product.price)}</TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600">{formatDate(product.timestamp)}</TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600">
+                              <Button onClick={() => router.push(`/customer/product/${product.id}`)} className="bg-primary hover:bg-primary/90">
+                                View Details
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="history" className="h-[calc(100%-60px)]">
+            <Card className="h-full border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-900">Purchase History</CardTitle>
+                <CardDescription className="mt-1 text-sm text-gray-500">Your recent purchase activity</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-8 h-8 border-b-2 rounded-full animate-spin border-primary"></div>
+                    <span className="ml-2 text-gray-500">Loading history...</span>
+                  </div>
+                ) : purchasedProducts.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <History className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium text-gray-900">No purchase history</h3>
+                    <p className="mt-1 text-sm text-gray-500">You haven't made any purchases yet</p>
+                    <Button onClick={() => router.push('/customer')} className="mt-4 bg-primary hover:bg-primary/90">
+                      Browse Products
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {purchasedProducts
+                      .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
+                      .map((product) => (
+                        <div key={product.id.toString()} className="p-4 bg-white rounded-lg shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
+                              <p className="text-sm text-gray-500">{product.brand}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-medium text-gray-900">{formatPrice(product.price)} ETH</p>
+                              <p className="text-sm text-gray-500">{formatDate(product.timestamp)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100">
+                            <div className="flex items-center">
+                              <QrCode className="w-4 h-4 mr-2 text-gray-400" />
+                              <span className="text-sm text-gray-500">QR Code: {product.qrCode}</span>
+                            </div>
+                            <Button onClick={() => router.push(`/customer/product/${product.id}`)} className="bg-primary hover:bg-primary/90">
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
