@@ -52,18 +52,6 @@ export default function FarmerProfilePage() {
     }
   }, [userDetails, isUserDetailsFetched])
 
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
-
   // Fetch raw materials
   useEffect(() => {
     const fetchRawMaterials = async () => {

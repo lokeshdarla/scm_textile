@@ -34,7 +34,7 @@ const Sidebar = ({ navItems, className }: SidebarProps) => {
   }
 
   return (
-    <div className={cn('flex flex-col h-screen border-r shadow-lg transition-all duration-300 relative', 'bg-primary', collapsed ? 'w-20' : 'w-64', className)}>
+    <div className={cn('flex flex-col min-h-screen border-r shadow-lg transition-all duration-300 relative', 'bg-primary', collapsed ? 'w-20' : 'w-64', className)}>
       {/* Logo area */}
       <div className="flex items-center justify-center h-20 p-4 border-b border-primary-foreground/20 bg-primary-foreground/10">
         {collapsed ? (
@@ -88,11 +88,19 @@ const Sidebar = ({ navItems, className }: SidebarProps) => {
               </Link>
             )
           })}
+          <Button
+            size="icon"
+            onClick={() => setLogoutDialogOpen(true)}
+            className="flex items-center justify-center w-full gap-2 border aspect-square bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/10"
+          >
+            <LogOut size={16} />
+            Logout
+          </Button>
         </TooltipProvider>
       </nav>
 
       {/* User section & logout */}
-      <div className={cn('mt-auto border-t border-primary-foreground/20 bg-primary-foreground/10 p-4', collapsed ? 'text-center' : '')}>
+      {/* <div className={cn('mt-auto border-t border-primary-foreground/20 bg-primary-foreground/10 p-4', collapsed ? 'text-center' : '')}>
         {collapsed ? (
           <TooltipProvider delayDuration={300}>
             <Tooltip>
@@ -117,7 +125,7 @@ const Sidebar = ({ navItems, className }: SidebarProps) => {
             Logout
           </Button>
         )}
-      </div>
+      </div> */}
 
       {/* Logout confirmation dialog */}
       <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>

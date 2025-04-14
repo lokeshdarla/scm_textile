@@ -49,6 +49,13 @@ export default function FarmerDashboard() {
     setIsLoading(true)
     showLoading('Loading raw materials...')
 
+    if (!activeAccount) {
+      toast.error('Please connect your wallet to continue')
+      setIsLoading(false)
+      hideLoading()
+      return
+    }
+
     try {
       // First, get all raw material IDs
       const rawMaterialIds = await readContract({

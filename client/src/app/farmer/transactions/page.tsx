@@ -188,7 +188,7 @@ const TransactionsPage = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden flex-col p-6  bg-gray-50/40">
+    <div className="flex flex-col p-6 overflow-y-scroll bg-gray-50/40">
       <h1 className="text-2xl font-semibold text-gray-900">Blockchain Transactions</h1>
       <p className="mt-1 mb-6 text-sm text-gray-500">View all transactions and events recorded on the blockchain</p>
 
