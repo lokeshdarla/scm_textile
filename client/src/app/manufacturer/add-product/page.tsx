@@ -27,6 +27,7 @@ interface Fabric {
   name: string
   composition: string
   price: bigint
+  isUsedForApparel: boolean
 }
 
 export default function AddProductPage() {
@@ -84,11 +85,11 @@ export default function AddProductPage() {
             const fabricData = await readContract({
               contract,
               method:
-                'function getFabric(uint256 fabricId) view returns ((uint256 id, address mill, address manufacturer, string qrCode, uint256[] rawMaterialIds, bool isAvailable, uint256 timestamp, string name, string composition, uint256 price))',
+                'function getFabric(uint256 fabricId) view returns ((uint256 id, address mill, address manufacturer, string qrCode, uint256[] rawMaterialIds, bool isAvailable, uint256 timestamp, string name, string composition, uint256 price,bool isUsedForApparel))',
               params: [id],
             })
 
-            if (fabricData && fabricData.manufacturer === activeAccount?.address) {
+            if (fabricData && fabricData.manufacturer === activeAccount?.address && !fabricData.isUsedForApparel) {
               fabricList.push(fabricData)
             }
           } catch (error) {
@@ -112,7 +113,7 @@ export default function AddProductPage() {
     if (activeAccount?.address && purchasedFabricIds && isIdsFetched) {
       fetchFabricDetails()
     }
-  }, [activeAccount, purchasedFabricIds, isIdsFetched, hideLoading, showLoading])
+  }, [activeAccount, purchasedFabricIds, isIdsFetched])
 
   // Filter fabrics based on search term
   const filteredFabrics = purchasedFabrics.filter((fabric) => fabric.name.toLowerCase().includes(searchTerm.toLowerCase()) || fabric.composition.toLowerCase().includes(searchTerm.toLowerCase()))
