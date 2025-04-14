@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { parseEther } from 'viem'
 import { Textarea } from '@/components/ui/textarea'
+import { uploadJsonDirect } from '@/constants/uploadToPinata'
 
 // Define the Apparel type based on the smart contract struct
 interface RawMaterial {
@@ -189,13 +190,23 @@ export default function AddFabricPage() {
       const rawMaterialIds = Array.from(selectedRawMaterials).map((id) => BigInt(id))
 
       // Convert price to Wei (assuming price is in ETH)
-      const priceInWei = BigInt(Math.floor(priceValue * 1e18))
+      const priceInWei = parseEther(price)
+
+      const data = {
+        name: name,
+        rawMaterial: selectedRawMaterials,
+        composition: composition,
+        price: priceInWei,
+        timestamp: new Date().toISOString(),
+      }
+
+      const qrCodeData = await uploadJsonDirect(data)
 
       // Prepare the contract call
       const transaction = await prepareContractCall({
         contract,
         method: 'function addFabric(string qrCode, uint256[] rawMaterialIds, string name, string composition, uint256 price)',
-        params: [qrCode, rawMaterialIds, name, composition, priceInWei],
+        params: [qrCodeData.cid, rawMaterialIds, name, composition, priceInWei],
       })
 
       // Send the transaction

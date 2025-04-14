@@ -12,10 +12,9 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
-import { useRouter } from 'next/navigation'
 import { parseEther } from 'viem'
 import { RawMaterial } from '@/constants'
-
+import { uploadJsonDirect } from '@/constants/uploadToPinata'
 // Define form data interface
 interface FormData {
   materialType: string
@@ -44,19 +43,6 @@ export default function FarmerDashboard() {
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
-  const router = useRouter()
-
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
 
   // Fetch raw materials
   const fetchRawMaterials = async () => {
@@ -166,6 +152,19 @@ export default function FarmerDashboard() {
     setIsSubmitting(true)
     showLoading('Adding new raw material to blockchain...')
 
+    const data = {
+      name: formData.materialType,
+      quantity: formData.quantity,
+      price: formData.price,
+      location: formData.location,
+      description: formData.description,
+      unit: formData.unit,
+      walletAddress: activeAccount?.address,
+      timestamp: new Date().toISOString(),
+    }
+
+    const qrCode = await uploadJsonDirect(data)
+
     try {
       // Convert price from ETH to Wei
       const priceInWei = parseEther(formData.price)
@@ -174,7 +173,7 @@ export default function FarmerDashboard() {
       const transaction = await prepareContractCall({
         contract,
         method: 'function addRawMaterial(string qrCode, string name, string rawMaterialType, uint256 quantity, uint256 price)',
-        params: ['QrCodeHash', formData.materialType, formData.materialType, BigInt(quantity), priceInWei],
+        params: [qrCode.cid, formData.materialType, formData.materialType, BigInt(quantity), priceInWei],
       })
 
       // Send the transaction

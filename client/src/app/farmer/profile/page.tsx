@@ -25,6 +25,7 @@ interface RawMaterial {
   rawMaterialType: string
   quantity: bigint
   price: bigint
+  isUsedForFabric: boolean
 }
 
 export default function FarmerProfilePage() {
@@ -91,7 +92,7 @@ export default function FarmerProfilePage() {
             const materialData = await readContract({
               contract,
               method:
-                'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price))',
+                'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price, bool isUsedForFabric))',
               params: [id],
             })
 

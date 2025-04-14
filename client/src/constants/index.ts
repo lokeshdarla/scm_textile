@@ -53,3 +53,13 @@ export interface Apparel {
   price: bigint
   isUsedForPackagedStock: boolean
 }
+
+
+export enum Role {
+  FARMER = 'FARMER',
+  MANUFACTURER = 'MANUFACTURER',
+  MILLS = 'MILL',
+  DISTRIBUTOR = 'DISTRIBUTOR',
+  RETAILER = 'RETAILER',
+  CUSTOMER = 'CUSTOMER',
+}
