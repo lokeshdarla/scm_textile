@@ -14,20 +14,7 @@ import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
 import { parseEther } from 'viem'
-import { isLoggedIn } from '@/actions/login'
-
-// Define the RawMaterial type based on the smart contract struct
-interface RawMaterial {
-  id: bigint
-  farmerId: bigint
-  materialType: string
-  quantity: bigint
-  price: bigint
-  location: string
-  isAvailable: boolean
-  buyer?: string
-  transactionHash?: string
-}
+import { RawMaterial } from '@/constants'
 
 // Define form data interface
 interface FormData {
@@ -58,11 +45,6 @@ export default function FarmerDashboard() {
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
   const router = useRouter()
-
-  // Define the event we want to listen for
-  const { data: contractEvents } = useContractEvents({
-    contract,
-  })
 
   // Check if user is connected
   useEffect(() => {
@@ -102,7 +84,7 @@ export default function FarmerDashboard() {
           const materialData = await readContract({
             contract,
             method:
-              'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price))',
+              'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price, string location, bool isUsedForFabric))',
             params: [id],
           })
 
@@ -114,8 +96,9 @@ export default function FarmerDashboard() {
               materialType: materialData.rawMaterialType,
               quantity: materialData.quantity,
               price: materialData.price,
-              location: materialData.name, // Using name as location for now
+              location: materialData.location,
               isAvailable: materialData.isAvailable,
+              isUsedForFabric: materialData.isUsedForFabric,
               buyer: materialData.mill !== '0x0000000000000000000000000000000000000000' ? materialData.mill : undefined,
             }
 
@@ -215,6 +198,7 @@ export default function FarmerDashboard() {
           location: formData.location,
           isAvailable: true,
           transactionHash: tx.transactionHash,
+          isUsedForFabric: false,
         }
 
         // Add to local state

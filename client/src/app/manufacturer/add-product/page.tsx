@@ -11,8 +11,7 @@ import { toast } from 'sonner'
 import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
-import { Package, Plus, Search } from 'lucide-react'
-import { isLoggedIn } from '@/actions/login'
+import { Package, Search } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
@@ -202,7 +201,7 @@ export default function AddProductPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
+    <div className="flex flex-col overflow-hidden bg-gray-50/40">
       <div className="p-6 pb-0">
         <div className="flex items-center justify-between mb-6">
           <div>

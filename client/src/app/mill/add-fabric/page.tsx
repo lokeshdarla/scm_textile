@@ -10,12 +10,13 @@ import { toast } from 'sonner'
 import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
-import { Package, Plus, Search } from 'lucide-react'
+import { Package, Plus, Search, RefreshCw } from 'lucide-react'
 import { isLoggedIn } from '@/actions/login'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { parseEther } from 'viem'
 import { Textarea } from '@/components/ui/textarea'
+
 // Define the Apparel type based on the smart contract struct
 interface RawMaterial {
   id: bigint
@@ -28,6 +29,7 @@ interface RawMaterial {
   rawMaterialType: string
   quantity: bigint
   price: bigint
+  isUsedForFabric: boolean
 }
 
 interface Fabric {
@@ -41,6 +43,21 @@ interface Fabric {
   name: string
   composition: string
   price: bigint
+}
+
+// Define the RetailProduct type based on the smart contract struct
+interface RetailProduct {
+  id: bigint
+  retailer: string
+  customer: string
+  qrCode: string
+  packagedStockIds: readonly bigint[]
+  isAvailable: boolean
+  timestamp: bigint
+  name: string
+  price: bigint
+  brand: string
+  isUsedForCustomer: boolean
 }
 
 export default function AddFabricPage() {
@@ -97,11 +114,11 @@ export default function AddFabricPage() {
             const rawMaterialData = await readContract({
               contract,
               method:
-                'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price))',
+                'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price, bool isUsedForFabric))',
               params: [id],
             })
 
-            if (rawMaterialData && rawMaterialData.mill === activeAccount?.address) {
+            if (rawMaterialData && rawMaterialData.mill === activeAccount?.address && rawMaterialData.isUsedForFabric === false) {
               rawMaterialList.push(rawMaterialData)
             }
           } catch (error) {
@@ -301,7 +318,11 @@ export default function AddFabricPage() {
                         {filteredRawMaterials.map((rawMaterial) => (
                           <TableRow key={rawMaterial.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
                             <TableCell className="p-4">
-                              <Checkbox checked={selectedRawMaterials.has(rawMaterial.id.toString())} onCheckedChange={() => handleRawMaterialSelection(rawMaterial.id.toString())} />
+                              <Checkbox
+                                disabled={rawMaterial.isUsedForFabric === true}
+                                checked={selectedRawMaterials.has(rawMaterial.id.toString())}
+                                onCheckedChange={() => handleRawMaterialSelection(rawMaterial.id.toString())}
+                              />
                             </TableCell>
                             <TableCell className="p-4 text-sm font-medium text-gray-900">{rawMaterial.name}</TableCell>
                             <TableCell className="p-4 text-sm text-gray-600 capitalize">{rawMaterial.rawMaterialType}</TableCell>

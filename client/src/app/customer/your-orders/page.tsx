@@ -1,202 +1,198 @@
-import React from 'react'
+'use client'
 
-export default function YourOrders() {
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { readContract } from 'thirdweb'
+import { useActiveAccount } from 'thirdweb/react'
+import { contract } from '@/lib/client'
+import { useLoading } from '@/components/providers/loading-provider'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Package, Search, RefreshCw } from 'lucide-react'
+import { RetailProduct } from '@/constants'
+
+export default function RetailProductsPage() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [retailProducts, setRetailProducts] = useState<RetailProduct[]>([])
+
+  const activeAccount = useActiveAccount()
+  const { showLoading, hideLoading } = useLoading()
+  const router = useRouter()
+
+  // Check if user is connected
+  useEffect(() => {
+    if (!activeAccount?.address) {
+      toast.error('No wallet connected', {
+        description: 'Please connect your wallet to access the dashboard',
+        duration: 5000,
+      })
+      router.push('/login')
+      return
+    }
+  }, [activeAccount, router])
+
+  // Fetch retail products
+  const fetchRetailProducts = async () => {
+    setIsLoading(true)
+    showLoading('Loading retail products...')
+
+    try {
+      // Get all retail product IDs
+      const retailProductIds = await readContract({
+        contract,
+        method: 'function getAllRetailProducts() view returns (uint256[])',
+        params: [],
+      })
+
+      if (!retailProductIds || retailProductIds.length === 0) {
+        setRetailProducts([])
+        return
+      }
+
+      // Fetch details for each retail product
+      const products: RetailProduct[] = []
+
+      for (const id of retailProductIds) {
+        try {
+          const productData = await readContract({
+            contract,
+            method:
+              'function getRetailProduct(uint256 retailProductId) view returns ((uint256 id, address retailer, address customer, string qrCode, uint256[] packagedStockIds, bool isAvailable, uint256 timestamp, string name, uint256 price, string brand, bool isUsedForCustomer))',
+            params: [id],
+          })
+
+          if (productData && productData.customer === activeAccount?.address) {
+            products.push(productData)
+          }
+        } catch (error) {
+          console.error(`Error fetching retail product with ID ${id}:`, error)
+          // Continue with other products even if one fails
+        }
+      }
+
+      setRetailProducts(products)
+    } catch (error) {
+      console.error('Error loading retail products:', error)
+      toast.error('Failed to load retail products', {
+        description: 'Please check your connection and try again',
+      })
+      setRetailProducts([])
+    } finally {
+      setIsLoading(false)
+      hideLoading()
+    }
+  }
+
+  // Initial fetch
+  useEffect(() => {
+    if (activeAccount?.address) {
+      fetchRetailProducts()
+    }
+  }, [activeAccount])
+
+  // Filter products based on search term
+  const filteredProducts = retailProducts.filter(
+    (product) =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) || product.brand.toLowerCase().includes(searchTerm.toLowerCase()) || product.qrCode.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Format price from Wei to ETH
+  const formatPrice = (price: bigint) => {
+    return (Number(price) / 1e18).toFixed(4)
+  }
+
+  // Format timestamp to readable date
+  const formatDate = (timestamp: bigint) => {
+    return new Date(Number(timestamp) * 1000).toLocaleDateString()
+  }
+
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Your Orders</h1>
-
-      {/* Order Filters */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
+      <div className="p-6 pb-0">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <label htmlFor="order-search" className="block text-sm font-medium text-gray-700 mb-1">
-              Search Orders
-            </label>
-            <input
-              type="text"
-              id="order-search"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Search by order ID or product"
-            />
+            <h1 className="text-2xl font-semibold text-gray-900">Retail Products</h1>
+            <p className="mt-1 text-sm text-gray-500">View all available retail products</p>
           </div>
-
-          <div>
-            <label htmlFor="order-status" className="block text-sm font-medium text-gray-700 mb-1">
-              Order Status
-            </label>
-            <select id="order-status" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">All Statuses</option>
-              <option value="processing">Processing</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="date-range" className="block text-sm font-medium text-gray-700 mb-1">
-              Date Range
-            </label>
-            <select id="date-range" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="last-30">Last 30 Days</option>
-              <option value="last-90">Last 90 Days</option>
-              <option value="last-180">Last 180 Days</option>
-              <option value="custom">Custom Range</option>
-            </select>
-          </div>
+          <Button onClick={fetchRetailProducts} disabled={isLoading} className="bg-primary hover:bg-primary/90">
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
       </div>
 
-      {/* Orders List */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-12345</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-04-10</td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  <div className="flex flex-col">
-                    <span>Cotton T-Shirt (2)</span>
-                    <span>Denim Jeans (1)</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$89.99</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Delivered</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      View Details
-                    </a>
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      Reorder
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-12344</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-04-08</td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  <div className="flex flex-col">
-                    <span>Wool Sweater (1)</span>
-                    <span>Scarf (2)</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$129.99</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">In Transit</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      Track Order
-                    </a>
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      View Details
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-12343</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-04-05</td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  <div className="flex flex-col">
-                    <span>Linen Tablecloth (1)</span>
-                    <span>Napkins (6)</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$75.50</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Processing</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      View Details
-                    </a>
-                    <a href="#" className="text-red-600 hover:text-red-900">
-                      Cancel
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-12342</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-03-28</td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  <div className="flex flex-col">
-                    <span>Cotton Bed Sheets (1)</span>
-                    <span>Pillowcases (2)</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$95.00</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Delivered</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      View Details
-                    </a>
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      Reorder
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-12341</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2023-03-15</td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  <div className="flex flex-col">
-                    <span>Silk Blouse (1)</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$65.00</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Cancelled</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      View Details
-                    </a>
-                    <a href="#" className="text-blue-600 hover:text-blue-900">
-                      Reorder
-                    </a>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div className="flex-1 px-6 pb-6 overflow-hidden">
+        <Card className="flex flex-col h-full border-0 shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl text-gray-900">Available Products</CardTitle>
+            <CardDescription className="mt-1 text-sm text-gray-500">Browse and search through available retail products</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 p-0 overflow-hidden">
+            <div className="p-6 space-y-4">
+              <div className="relative">
+                <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" />
+                <Input
+                  placeholder="Search products by name, brand, or QR code..."
+                  className="h-10 pl-10 text-sm bg-white border-gray-200 placeholder:text-gray-400"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
 
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Showing <span className="font-medium">1</span> to <span className="font-medium">5</span> of <span className="font-medium">12</span> results
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-8 h-8 border-b-2 rounded-full animate-spin border-primary"></div>
+                  <span className="ml-2 text-gray-500">Loading products...</span>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="py-8 text-center">
+                  <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium text-gray-900">No products available</h3>
+                  <p className="mt-1 text-sm text-gray-500">There are no retail products to display</p>
+                </div>
+              ) : (
+                <div className="overflow-auto max-h-[600px] border rounded-md">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-gray-50/80 backdrop-blur supports-[backdrop-filter]:bg-gray-50/60">
+                      <TableRow className="border-b border-gray-200">
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">ID</TableHead>
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Name</TableHead>
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Brand</TableHead>
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Status</TableHead>
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Date Added</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredProducts.map((product) => (
+                        <TableRow key={product.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
+                          <TableCell className="p-4 text-sm font-medium text-gray-900">#{product.id.toString()}</TableCell>
+                          <TableCell className="p-4 text-sm text-gray-900">{product.name}</TableCell>
+                          <TableCell className="p-4 text-sm text-gray-600 capitalize">{product.brand}</TableCell>
+                          <TableCell className="p-4 text-sm text-gray-600">{product.qrCode}</TableCell>
+                          <TableCell className="p-4 text-sm text-gray-600">{formatPrice(product.price)}</TableCell>
+                          <TableCell className="p-4">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${product.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                            >
+                              {product.isAvailable ? 'Available' : 'Sold'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="p-4 text-sm text-gray-600">{formatDate(product.timestamp)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
-            <div className="flex space-x-2">
-              <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Previous</button>
-              <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Next</button>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

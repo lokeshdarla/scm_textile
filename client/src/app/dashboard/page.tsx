@@ -8,7 +8,6 @@ import { isLoggedIn as checkLoginStatus } from '@/actions/login'
 const Dashboard = () => {
   const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [userAddress, setUserAddress] = useState<string | null>(null)
 
   useEffect(() => {
     const checkLogin = async () => {
@@ -29,32 +28,32 @@ const Dashboard = () => {
   }
 
   if (!isLoggedIn) {
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex justify-between items-center mb-6">
+    <div className="container px-4 py-8 mx-auto">
+      <div className="p-6 bg-white rounded-lg shadow-lg">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <Button onClick={handleLogout} variant="destructive">
             Logout
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h2 className="text-xl font-semibold mb-2">Profile</h2>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="p-4 rounded-lg bg-gray-50">
+            <h2 className="mb-2 text-xl font-semibold">Profile</h2>
             <p>Manage your account settings and preferences</p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h2 className="text-xl font-semibold mb-2">Orders</h2>
+          <div className="p-4 rounded-lg bg-gray-50">
+            <h2 className="mb-2 text-xl font-semibold">Orders</h2>
             <p>View and track your orders</p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h2 className="text-xl font-semibold mb-2">Notifications</h2>
+          <div className="p-4 rounded-lg bg-gray-50">
+            <h2 className="mb-2 text-xl font-semibold">Notifications</h2>
             <p>Check your notifications and messages</p>
           </div>
         </div>

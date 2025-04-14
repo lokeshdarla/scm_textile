@@ -1,8 +1,6 @@
 'use client'
 import React from 'react'
 import Sidebar, { NavItem } from './Sidebar'
-import { ConnectButton } from 'thirdweb/react'
-import { client } from '@/lib/client'
 
 interface DashboardLayoutProps {
   children: React.ReactNode

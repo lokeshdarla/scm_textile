@@ -61,8 +61,8 @@ export default function AddForSalePage() {
   // Fetch retailer's packaged stocks
   const { data: retailerStockIds, isFetched: isIdsFetched } = useReadContract({
     contract,
-    method: 'function getRetailerPackagedStocks(address retailer) view returns (uint256[])',
-    params: [activeAccount?.address || '0x0000000000000000000000000000000000000000'],
+    method: 'function getAllPackagedStocks() view returns (uint256[])',
+    params: [],
   })
 
   // State for packaged stocks
@@ -74,7 +74,6 @@ export default function AddForSalePage() {
       if (!retailerStockIds || !isIdsFetched || !activeAccount?.address) return
 
       setIsLoading(true)
-      showLoading('Loading your packaged stocks...')
 
       try {
         const stockList: PackagedStock[] = []
@@ -88,7 +87,7 @@ export default function AddForSalePage() {
               params: [id],
             })
 
-            if (stockData) {
+            if (stockData && stockData.retailer === activeAccount?.address) {
               stockList.push(stockData)
             }
           } catch (error) {
@@ -106,7 +105,6 @@ export default function AddForSalePage() {
         setPackagedStocks([])
       } finally {
         setIsLoading(false)
-        hideLoading()
       }
     }
 

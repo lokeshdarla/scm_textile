@@ -10,7 +10,6 @@ import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
 import { Package, Search, ShoppingCart } from 'lucide-react'
-import { isLoggedIn } from '@/actions/login'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
@@ -54,7 +53,7 @@ export default function RetailerDashboard() {
   // Fetch available packaged stocks
   const { data: availableStockIds, isFetched: isIdsFetched } = useReadContract({
     contract,
-    method: 'function getAvailablePackagedStocks() view returns (uint256[])',
+    method: 'function getAllPackagedStocks() view returns (uint256[])',
     params: [],
   })
 
@@ -80,7 +79,7 @@ export default function RetailerDashboard() {
               params: [id],
             })
 
-            if (stockData) {
+            if (stockData && stockData.isAvailable === true) {
               stockList.push(stockData)
             }
           } catch (error) {

@@ -9,25 +9,10 @@ import { toast } from 'sonner'
 import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
-import { Package, Search, ShoppingCart, ExternalLink } from 'lucide-react'
-import { isLoggedIn } from '@/actions/login'
+import { Package, Search, ShoppingCart } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-
-// Define the Apparel type based on the smart contract struct
-interface Apparel {
-  id: bigint
-  manufacturer: string
-  distributor: string
-  qrCode: string
-  fabricIds: readonly bigint[]
-  isAvailable: boolean
-  timestamp: bigint
-  name: string
-  category: string
-  size: string
-  price: bigint
-}
+import { Apparel } from '@/constants'
 
 export default function DistributorDashboard() {
   const [apparels, setApparels] = useState<Apparel[]>([])
@@ -61,7 +46,7 @@ export default function DistributorDashboard() {
   // Fetch available apparels
   const { data: availableApparelIds, isFetched: isIdsFetched } = useReadContract({
     contract,
-    method: 'function getAvailableApparels() view returns (uint256[])',
+    method: 'function getALlApparels() view returns (uint256[])',
     params: [],
   })
 
@@ -74,17 +59,17 @@ export default function DistributorDashboard() {
 
       try {
         const apparelList: Apparel[] = []
-
+        console.log(availableApparelIds)
         for (const id of availableApparelIds) {
           try {
             const apparelData = await readContract({
               contract,
               method:
-                'function getApparel(uint256 apparelId) view returns ((uint256 id, address manufacturer, address distributor, string qrCode, uint256[] fabricIds, bool isAvailable, uint256 timestamp, string name, string category, string size, uint256 price))',
+                'function getApparel(uint256 apparelId) view returns ((uint256 id, address manufacturer, address distributor, string qrCode, uint256[] fabricIds, bool isAvailable, uint256 timestamp, string name, string category, string size, uint256 price, bool isUsedForPackagedStock))',
               params: [id],
             })
 
-            if (apparelData) {
+            if (apparelData && apparelData.isAvailable === true) {
               apparelList.push(apparelData)
             }
           } catch (error) {
@@ -102,7 +87,6 @@ export default function DistributorDashboard() {
         setApparels([])
       } finally {
         setIsLoading(false)
-        hideLoading()
       }
     }
 

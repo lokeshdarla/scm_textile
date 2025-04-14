@@ -10,7 +10,7 @@ import { useActiveAccount, useSendTransaction, useReadContract } from 'thirdweb/
 import { useRouter } from 'next/navigation'
 import { Loader2, UserCircle2, Key, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { ConnectButton } from 'thirdweb/react'
 import { inAppWallet, createWallet } from 'thirdweb/wallets'
 import { Label } from '@/components/ui/label'
@@ -40,7 +40,7 @@ const wallets = [
 export default function Page() {
   const [name, setName] = useState('')
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-  const [isFetchingLoading, setIsFetchingLoading] = useState(false)
+  // @ts-ignore
   const [isRegisteringUser, setIsRegisteringUser] = useState(false)
   const [location, setLocation] = useState('')
   const [showRegistration, setShowRegistration] = useState(false)

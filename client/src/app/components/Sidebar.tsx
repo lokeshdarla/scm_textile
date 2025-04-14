@@ -3,11 +3,10 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { logout } from '@/actions/login'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
-import { LogOut, ChevronLeft, ChevronRight, User, Settings, ShieldCheck } from 'lucide-react'
+import { LogOut, ShieldCheck } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export interface NavItem {
@@ -25,6 +24,7 @@ const Sidebar = ({ navItems, className }: SidebarProps) => {
   const pathname = usePathname()
   const router = useRouter()
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+  //@ts-ignore
   const [collapsed, setCollapsed] = useState(false)
 
   const handleLogout = async () => {

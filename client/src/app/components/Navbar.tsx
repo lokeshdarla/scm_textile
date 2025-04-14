@@ -1,11 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { redirect } from 'next/navigation'
 import { isLoggedIn as checkLoginStatus } from '../../actions/login'
-import { Loader2 } from 'lucide-react'
 
 const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)

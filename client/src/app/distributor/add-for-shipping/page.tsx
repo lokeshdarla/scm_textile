@@ -10,8 +10,7 @@ import { toast } from 'sonner'
 import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
-import { Package, Plus, Search } from 'lucide-react'
-import { isLoggedIn } from '@/actions/login'
+import { Package, Search } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
@@ -28,6 +27,7 @@ interface Apparel {
   category: string
   size: string
   price: bigint
+  isUsedForPackagedStock: boolean
 }
 
 export default function AddForShippingPage() {
@@ -60,10 +60,10 @@ export default function AddForShippingPage() {
   }, [activeAccount, router])
 
   // Fetch purchased apparels
-  const { data: purchasedApparelIds, isFetched: isIdsFetched } = useReadContract({
+  const { data: availableApparelIds, isFetched: isIdsFetched } = useReadContract({
     contract,
-    method: 'function getDistributorApparels(address distributor) view returns (uint256[])',
-    params: [activeAccount?.address || '0x0000000000000000000000000000000000000000'],
+    method: 'function getALlApparels() view returns (uint256[])',
+    params: [],
   })
 
   // State for purchased apparels
@@ -72,28 +72,29 @@ export default function AddForShippingPage() {
   // Fetch details for each apparel
   useEffect(() => {
     const fetchApparelDetails = async () => {
-      if (!purchasedApparelIds || !isIdsFetched || !activeAccount?.address) return
-
+      if (!availableApparelIds || !isIdsFetched || !activeAccount?.address) return
+      console.log(availableApparelIds)
       setIsLoading(true)
-      showLoading('Loading your apparel products...')
 
       try {
         const apparelList: Apparel[] = []
 
-        for (const id of purchasedApparelIds) {
+        for (const apparelId of availableApparelIds) {
           try {
             const apparelData = await readContract({
               contract,
               method:
-                'function getApparel(uint256 apparelId) view returns ((uint256 id, address manufacturer, address distributor, string qrCode, uint256[] fabricIds, bool isAvailable, uint256 timestamp, string name, string category, string size, uint256 price))',
-              params: [id],
+                'function getApparel(uint256 apparelId) view returns ((uint256 id, address manufacturer, address distributor, string qrCode, uint256[] fabricIds, bool isAvailable, uint256 timestamp, string name, string category, string size, uint256 price, bool isUsedForPackagedStock))',
+              params: [apparelId],
             })
 
-            if (apparelData) {
+            console.log(apparelData)
+
+            if (apparelData && apparelData.distributor === activeAccount?.address && apparelData.isUsedForPackagedStock === false) {
               apparelList.push(apparelData)
             }
           } catch (error) {
-            console.error(`Error fetching apparel with ID ${id}:`, error)
+            console.error(`Error fetching apparel with ID ${apparelId}:`, error)
             // Continue with other apparels even if one fails
           }
         }
@@ -111,10 +112,10 @@ export default function AddForShippingPage() {
       }
     }
 
-    if (activeAccount?.address && purchasedApparelIds && isIdsFetched) {
+    if (activeAccount?.address && availableApparelIds && isIdsFetched) {
       fetchApparelDetails()
     }
-  }, [activeAccount, purchasedApparelIds, isIdsFetched, hideLoading, showLoading])
+  }, [activeAccount, availableApparelIds, isIdsFetched])
 
   // Filter apparels based on search term
   const filteredApparels = purchasedApparels.filter(

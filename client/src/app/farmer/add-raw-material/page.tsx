@@ -9,10 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import Image from 'next/image'
 import { Loader2, Package, MapPin, DollarSign, Info } from 'lucide-react'
-import { sendTransaction } from 'thirdweb'
 import { prepareContractCall } from 'thirdweb'
-import { contract, client } from '@/lib/client'
-import { useActiveAccount, useSendTransaction, useReadContract } from 'thirdweb/react'
+import { contract } from '@/lib/client'
+import { useSendTransaction } from 'thirdweb/react'
 
 const AddRawMaterialPage = () => {
   const [formData, setFormData] = useState({
