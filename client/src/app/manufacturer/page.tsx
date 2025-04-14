@@ -27,18 +27,6 @@ export default function ManufacturerDashboard() {
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
 
   // Fetch available fabrics
   const { data: availableFabricIds, isFetched: isIdsFetched } = useReadContract({
@@ -53,7 +41,6 @@ export default function ManufacturerDashboard() {
       if (!availableFabricIds || !isIdsFetched) return
 
       setIsLoading(true)
-      showLoading('Loading available fabrics...')
 
       try {
         const fabricList: Fabric[] = []

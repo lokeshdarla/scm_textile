@@ -27,20 +27,10 @@ export default function ManufacturerProfilePage() {
   const { showLoading, hideLoading } = useLoading()
   const router = useRouter()
 
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
-
   // Fetch apparels
   useEffect(() => {
+    let isMounted = true
+
     const fetchApparels = async () => {
       if (!activeAccount?.address) return
 
@@ -50,11 +40,9 @@ export default function ManufacturerProfilePage() {
         // Get all apparels
         const apparelIds = await readContract({
           contract,
-          method: 'function getAllApparels() view returns (uint256[])',
+          method: 'function getALlApparels() view returns (uint256[])',
           params: [],
         })
-
-        console.log('apparelIds', apparelIds)
 
         if (!apparelIds || apparelIds.length === 0) {
           setApparels([])
@@ -69,11 +57,9 @@ export default function ManufacturerProfilePage() {
             const apparelData = await readContract({
               contract,
               method:
-                'function getApparel(uint256 apparelId) view returns ((uint256 id, address manufacturer, uint256 fabricId, string qrCode, bool isAvailable, uint256 timestamp, string name, string brand, uint256 price, string distributor, uint256[] fabricIds, string category, string size, bool isUsedForPackagedStock))',
+                'function getApparel(uint256 apparelId) view returns ((uint256 id, address manufacturer, address distributor, string qrCode, uint256[] fabricIds, bool isAvailable, uint256 timestamp, string name, string category, string size, uint256 price, bool isUsedForPackagedStock))',
               params: [id],
             })
-
-            console.log('apparelData', apparelData)
 
             if (apparelData && apparelData.manufacturer === activeAccount?.address) {
               apparelList.push(apparelData)
@@ -84,12 +70,23 @@ export default function ManufacturerProfilePage() {
           }
         }
 
+        if (!isMounted) return
+
         setApparels(apparelList)
 
         // Calculate stats
         const totalAdded = apparelList.length
         const totalSold = apparelList.filter((a) => !a.isAvailable).length
-        const totalValue = apparelList.reduce((sum, a) => sum + a.price, BigInt(0))
+
+        // Safely calculate total value with BigInt
+        let totalValue = BigInt(0)
+        for (const apparel of apparelList) {
+          try {
+            totalValue += apparel.price
+          } catch (error) {
+            console.error('Error adding price:', error)
+          }
+        }
 
         setStats({
           totalAdded,
@@ -98,17 +95,25 @@ export default function ManufacturerProfilePage() {
         })
       } catch (error) {
         console.error('Error loading apparels:', error)
-        toast.error('Failed to load apparels', {
-          description: 'Please check your connection and try again',
-        })
-        setApparels([])
+        if (isMounted) {
+          toast.error('Failed to load apparels', {
+            description: 'Please check your connection and try again',
+          })
+          setApparels([])
+        }
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
     if (activeAccount?.address) {
       fetchApparels()
+    }
+
+    return () => {
+      isMounted = false
     }
   }, [activeAccount])
 

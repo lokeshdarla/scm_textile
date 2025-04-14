@@ -14,7 +14,9 @@ import { useRouter } from 'next/navigation'
 import { Package, Search } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-
+import { uploadJsonDirect } from '@/constants/uploadToPinata'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { parseEther } from 'viem'
 // Define the Fabric type based on the smart contract struct
 interface Fabric {
   id: bigint
@@ -34,10 +36,9 @@ export default function AddProductPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedFabrics, setSelectedFabrics] = useState<Set<string>>(new Set())
+  const [selectedFabric, setSelectedFabric] = useState<string>('')
 
   // Form state
-  const [qrCode, setQrCode] = useState('')
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
   const [size, setSize] = useState('')
@@ -47,18 +48,6 @@ export default function AddProductPage() {
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
   const router = useRouter()
-
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
 
   // Fetch purchased fabrics
   const { data: purchasedFabricIds, isFetched: isIdsFetched } = useReadContract({
@@ -120,13 +109,7 @@ export default function AddProductPage() {
 
   // Handle fabric selection
   const handleFabricSelection = (fabricId: string) => {
-    const newSelectedFabrics = new Set(selectedFabrics)
-    if (newSelectedFabrics.has(fabricId)) {
-      newSelectedFabrics.delete(fabricId)
-    } else {
-      newSelectedFabrics.add(fabricId)
-    }
-    setSelectedFabrics(newSelectedFabrics)
+    setSelectedFabric(fabricId)
   }
 
   // Handle form submission
@@ -134,7 +117,7 @@ export default function AddProductPage() {
     e.preventDefault()
 
     // Validate form
-    if (!qrCode || !name || !category || !size || !price || selectedFabrics.size === 0) {
+    if (!name || !category || !size || !price || selectedFabric === '') {
       toast.error('Please fill in all fields and select at least one fabric', {
         description: 'All fields are required to create a new apparel product',
       })
@@ -154,17 +137,40 @@ export default function AddProductPage() {
     showLoading('Creating new apparel product...')
 
     try {
+      const fabricDetail = purchasedFabrics.find((fabric) => fabric.id.toString() === BigInt(selectedFabric).toString())
+
+      // Convert BigInt values to strings for JSON serialization
+      const serializedFabricDetail = fabricDetail
+        ? {
+            ...fabricDetail,
+            id: fabricDetail.id.toString(),
+            timestamp: fabricDetail.timestamp.toString(),
+            price: fabricDetail.price.toString(),
+            rawMaterialIds: fabricDetail.rawMaterialIds.map((id) => id.toString()),
+          }
+        : null
+
+      const data = {
+        name: name,
+        category: category,
+        size: size,
+        price: price,
+        fabric: serializedFabricDetail,
+      }
+
+      const qrCodeData = await uploadJsonDirect(data)
+
       // Convert selected fabric IDs to bigint array
-      const fabricIds = Array.from(selectedFabrics).map((id) => BigInt(id))
+      const fabricIds = [BigInt(selectedFabric)]
 
       // Convert price to Wei (assuming price is in ETH)
-      const priceInWei = BigInt(Math.floor(priceValue * 1e18))
+      const priceInWei = parseEther(price)
 
       // Prepare the contract call
       const transaction = await prepareContractCall({
         contract,
         method: 'function addApparel(string qrCode, uint256[] fabricIds, string name, string category, string size, uint256 price)',
-        params: [qrCode, fabricIds, name, category, size, priceInWei],
+        params: [qrCodeData.cid, fabricIds, name, category, size, priceInWei],
       })
 
       // Send the transaction
@@ -178,12 +184,11 @@ export default function AddProductPage() {
         })
 
         // Reset form
-        setQrCode('')
         setName('')
         setCategory('')
         setSize('')
         setPrice('')
-        setSelectedFabrics(new Set())
+        setSelectedFabric('')
 
         // Navigate back to manufacturer dashboard
         router.push('/manufacturer')
@@ -222,10 +227,6 @@ export default function AddProductPage() {
                 <CardDescription className="mt-1 text-sm text-gray-500">Enter the details of your new apparel product</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="qrCode">QR Code</Label>
-                  <Input id="qrCode" placeholder="Enter QR code for the product" value={qrCode} onChange={(e) => setQrCode(e.target.value)} required />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name</Label>
                   <Input id="name" placeholder="Enter product name" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -314,7 +315,9 @@ export default function AddProductPage() {
                         {filteredFabrics.map((fabric) => (
                           <TableRow key={fabric.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
                             <TableCell className="p-4">
-                              <Checkbox checked={selectedFabrics.has(fabric.id.toString())} onCheckedChange={() => handleFabricSelection(fabric.id.toString())} />
+                              <RadioGroup value={selectedFabric} onValueChange={(value) => setSelectedFabric(value)}>
+                                <RadioGroupItem value={fabric.id.toString()} id={`radio-${fabric.id}`} />
+                              </RadioGroup>
                             </TableCell>
                             <TableCell className="p-4 text-sm font-medium text-gray-900">{fabric.name}</TableCell>
                             <TableCell className="p-4 text-sm text-gray-600">{fabric.composition}</TableCell>
@@ -332,7 +335,7 @@ export default function AddProductPage() {
             <Button type="button" variant="outline" onClick={() => router.push('/manufacturer')} className="border-gray-200">
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedFabrics.size === 0}>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedFabric === ''}>
               {isSubmitting ? 'Creating...' : 'Create Product'}
             </Button>
           </div>
