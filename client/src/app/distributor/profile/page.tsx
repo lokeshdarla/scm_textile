@@ -17,17 +17,15 @@ import Link from 'next/link'
 interface PackagedStock {
   id: bigint
   distributor: string
-  apparelId: bigint
+  retailer: string
   qrCode: string
+  apparelIds: readonly bigint[]
   isAvailable: boolean
   timestamp: bigint
   name: string
-  brand: string
+  quantity: bigint
   price: bigint
-  fabricIds: readonly bigint[]
-  category: string
-  size: string
-  isUsedForPackagedStock: boolean
+  isUsedForRetailProduct: boolean
 }
 
 export default function DistributorProfilePage() {
@@ -42,18 +40,6 @@ export default function DistributorProfilePage() {
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const router = useRouter()
-
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
 
   // Fetch packaged stocks
   useEffect(() => {
@@ -83,7 +69,7 @@ export default function DistributorProfilePage() {
             const packagedStockData = await readContract({
               contract,
               method:
-                'function getPackagedStock(uint256 packagedStockId) view returns ((uint256 id, address distributor, uint256 apparelId, string qrCode, bool isAvailable, uint256 timestamp, string name, string brand, uint256 price, uint256[] fabricIds, string category, string size, bool isUsedForPackagedStock))',
+                'function getPackagedStock(uint256 packagedStockId) view returns ((uint256 id, address distributor, address retailer, string qrCode, uint256[] apparelIds, bool isAvailable, uint256 timestamp, string name, uint256 quantity, uint256 price, bool isUsedForRetailProduct))',
               params: [id],
             })
 

@@ -25,23 +25,6 @@ export default function DistributorDashboard() {
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
-  const router = useRouter()
-
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      setTimeout(() => {
-        showLoading('fetching user details...')
-      }, 5000)
-
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
 
   // Fetch available apparels
   const { data: availableApparelIds, isFetched: isIdsFetched } = useReadContract({

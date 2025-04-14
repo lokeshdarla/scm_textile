@@ -13,7 +13,9 @@ import { useRouter } from 'next/navigation'
 import { Package, Search } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { parseEther } from 'viem'
+import { uploadJsonDirect } from '@/constants/uploadToPinata'
 // Define the Apparel type based on the smart contract struct
 interface Apparel {
   id: bigint
@@ -34,7 +36,7 @@ export default function AddForShippingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedApparels, setSelectedApparels] = useState<Set<string>>(new Set())
+  const [selectedApparel, setSelectedApparel] = useState<string>('')
 
   // Form state
   const [qrCode, setQrCode] = useState('')
@@ -48,16 +50,6 @@ export default function AddForShippingPage() {
   const router = useRouter()
 
   // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
 
   // Fetch purchased apparels
   const { data: availableApparelIds, isFetched: isIdsFetched } = useReadContract({
@@ -73,7 +65,6 @@ export default function AddForShippingPage() {
   useEffect(() => {
     const fetchApparelDetails = async () => {
       if (!availableApparelIds || !isIdsFetched || !activeAccount?.address) return
-      console.log(availableApparelIds)
       setIsLoading(true)
 
       try {
@@ -127,13 +118,7 @@ export default function AddForShippingPage() {
 
   // Handle apparel selection
   const handleApparelSelection = (apparelId: string) => {
-    const newSelectedApparels = new Set(selectedApparels)
-    if (newSelectedApparels.has(apparelId)) {
-      newSelectedApparels.delete(apparelId)
-    } else {
-      newSelectedApparels.add(apparelId)
-    }
-    setSelectedApparels(newSelectedApparels)
+    setSelectedApparel(apparelId)
   }
 
   // Handle form submission
@@ -141,7 +126,7 @@ export default function AddForShippingPage() {
     e.preventDefault()
 
     // Validate form
-    if (!qrCode || !name || !quantity || !price || selectedApparels.size === 0) {
+    if (!name || !quantity || !price || selectedApparel === '') {
       toast.error('Please fill in all fields and select at least one apparel product', {
         description: 'All fields are required to create a new packaged stock',
       })
@@ -171,16 +156,41 @@ export default function AddForShippingPage() {
 
     try {
       // Convert selected apparel IDs to bigint array
-      const apparelIds = Array.from(selectedApparels).map((id) => BigInt(id))
+      const ids = []
+      ids.push(selectedApparel)
+      const apparelIds = ids.map((id) => BigInt(id))
 
       // Convert price to Wei (assuming price is in ETH)
-      const priceInWei = BigInt(Math.floor(priceValue * 1e18))
+      const priceInWei = parseEther(price)
+
+      const apparel = filteredApparels.find((apparel) => apparel.id === apparelIds[0])
+
+      // Convert BigInt values to strings for JSON serialization
+      const serializedApparel = apparel
+        ? {
+            ...apparel,
+            id: apparel.id.toString(),
+            timestamp: apparel.timestamp.toString(),
+            price: apparel.price.toString(),
+            fabricIds: apparel.fabricIds.map((id) => id.toString()),
+          }
+        : null
+
+      const data = {
+        name: name,
+        apparel: serializedApparel,
+        quantity: quantity,
+        price: price,
+        timestamp: new Date().toISOString(),
+      }
+
+      const qrCodeData = await uploadJsonDirect(data)
 
       // Prepare the contract call
       const transaction = await prepareContractCall({
         contract,
         method: 'function addPackagedStock(string qrCode, uint256[] apparelIds, string name, uint256 quantity, uint256 price)',
-        params: [qrCode, apparelIds, name, BigInt(quantityValue), priceInWei],
+        params: [qrCodeData.cid, apparelIds, name, BigInt(quantityValue), priceInWei],
       })
 
       // Send the transaction
@@ -198,7 +208,7 @@ export default function AddForShippingPage() {
         setName('')
         setQuantity('')
         setPrice('')
-        setSelectedApparels(new Set())
+        setSelectedApparel('')
 
         // Navigate back to distributor dashboard
         router.push('/distributor')
@@ -237,10 +247,6 @@ export default function AddForShippingPage() {
                 <CardDescription className="mt-1 text-sm text-gray-500">Enter the details of your packaged stock</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="qrCode">QR Code</Label>
-                  <Input id="qrCode" placeholder="Enter QR code for the package" value={qrCode} onChange={(e) => setQrCode(e.target.value)} required />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Package Name</Label>
                   <Input id="name" placeholder="Enter package name" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -302,7 +308,9 @@ export default function AddForShippingPage() {
                         {filteredApparels.map((apparel) => (
                           <TableRow key={apparel.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
                             <TableCell className="p-4">
-                              <Checkbox checked={selectedApparels.has(apparel.id.toString())} onCheckedChange={() => handleApparelSelection(apparel.id.toString())} />
+                              <RadioGroup value={selectedApparel} onValueChange={handleApparelSelection}>
+                                <RadioGroupItem value={apparel.id.toString()} id={`radio-${apparel.id}`} />
+                              </RadioGroup>
                             </TableCell>
                             <TableCell className="p-4 text-sm font-medium text-gray-900">{apparel.name}</TableCell>
                             <TableCell className="p-4 text-sm text-gray-600 capitalize">{apparel.category}</TableCell>
@@ -321,7 +329,7 @@ export default function AddForShippingPage() {
             <Button type="button" variant="outline" onClick={() => router.push('/distributor')} className="border-gray-200">
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedApparels.size === 0}>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedApparel === ''}>
               {isSubmitting ? 'Creating...' : 'Create Package'}
             </Button>
           </div>
