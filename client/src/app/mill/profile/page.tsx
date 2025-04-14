@@ -41,16 +41,16 @@ export default function MillProfilePage() {
   const router = useRouter()
 
   // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
+  // useEffect(() => {
+  //   if (!activeAccount?.address) {
+  //     toast.error('No wallet connected', {
+  //       description: 'Please connect your wallet to access the dashboard',
+  //       duration: 5000,
+  //     })
+  //     router.push('/login')
+  //     return
+  //   }
+  // }, [activeAccount, router])
 
   // Fetch fabrics
   useEffect(() => {
@@ -137,7 +137,7 @@ export default function MillProfilePage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
+    <div className="flex flex-col min-h-screen bg-gray-50/40">
       <div className="p-6 pb-0">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-2">

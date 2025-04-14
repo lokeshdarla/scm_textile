@@ -1,9 +1,9 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ExternalLink, Package, Search, ShoppingCart } from 'lucide-react'
+import { ExternalLink, Package, RefreshCcw, Search, ShoppingCart } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useActiveAccount, useReadContract, useSendTransaction } from 'thirdweb/react'
 import { useLoading } from '@/components/providers/loading-provider'
@@ -43,37 +43,17 @@ export default function MillDashboard() {
   const { mutateAsync: sendTx } = useSendTransaction()
   const router = useRouter()
 
-  // Check authentication on component mount
-  // useEffect(() => {
-  //   const checkAuth = async () => {
-  //     try {
-  //       const loggedIn = await isLoggedIn()
-  //       if (!loggedIn) {
-  //         toast.error('Authentication required', {
-  //           description: 'Please log in to access the dashboard',
-  //         })
-  //         router.push('/login')
-  //       }
-  //     } catch (error) {
-  //       console.error('Auth check failed:', error)
-  //       router.push('/login')
-  //     }
-  //   }
-
-  //   checkAuth()
-  // }, [router])
-
   // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
+  // useEffect(() => {
+  //   if (!activeAccount?.address) {
+  //     toast.error('No wallet connected', {
+  //       description: 'Please connect your wallet to access the dashboard',
+  //       duration: 5000,
+  //     })
+  //     router.push('/login')
+  //     return
+  //   }
+  // }, [activeAccount, router])
 
   // Fetch available raw materials
   const { data: availableMaterialIds, isFetched: isIdsFetched } = useReadContract({
@@ -82,46 +62,46 @@ export default function MillDashboard() {
     params: [],
   })
 
+  const fetchMaterialDetails = async () => {
+    if (!availableMaterialIds || !isIdsFetched) return
+
+    setIsLoading(true)
+    // showLoading('Loading available raw materials...')
+
+    try {
+      const materials: RawMaterial[] = []
+
+      for (const id of availableMaterialIds) {
+        // Use readContract instead of useReadContract hook
+        const materialData = await readContract({
+          contract,
+          method:
+            'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price))',
+          params: [id],
+        })
+
+        console.log(materialData)
+
+        if (materialData && materialData.isAvailable) {
+          materials.push(materialData)
+        }
+      }
+
+      setRawMaterials(materials)
+    } catch (error) {
+      console.error('Error loading raw materials:', error)
+      toast.error('Failed to load raw materials', {
+        description: 'Please check your connection and try again',
+      })
+      setRawMaterials([])
+    } finally {
+      setIsLoading(false)
+      hideLoading()
+    }
+  }
+
   // Fetch details for each raw material
   useEffect(() => {
-    const fetchMaterialDetails = async () => {
-      if (!availableMaterialIds || !isIdsFetched) return
-
-      setIsLoading(true)
-      // showLoading('Loading available raw materials...')
-
-      try {
-        const materials: RawMaterial[] = []
-
-        for (const id of availableMaterialIds) {
-          // Use readContract instead of useReadContract hook
-          const materialData = await readContract({
-            contract,
-            method:
-              'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price))',
-            params: [id],
-          })
-
-          console.log(materialData)
-
-          if (materialData && materialData.isAvailable) {
-            materials.push(materialData)
-          }
-        }
-
-        setRawMaterials(materials)
-      } catch (error) {
-        console.error('Error loading raw materials:', error)
-        toast.error('Failed to load raw materials', {
-          description: 'Please check your connection and try again',
-        })
-        setRawMaterials([])
-      } finally {
-        setIsLoading(false)
-        hideLoading()
-      }
-    }
-
     if (activeAccount?.address && availableMaterialIds && isIdsFetched) {
       fetchMaterialDetails()
     }
@@ -225,6 +205,10 @@ export default function MillDashboard() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              <Button variant="outline" size="sm" onClick={() => fetchMaterialDetails()}>
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="flex-1 p-0 overflow-hidden">

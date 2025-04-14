@@ -79,16 +79,16 @@ export default function AddFabricPage() {
   const router = useRouter()
 
   // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
+  // useEffect(() => {
+  //   if (!activeAccount?.address) {
+  //     toast.error('No wallet connected', {
+  //       description: 'Please connect your wallet to access the dashboard',
+  //       duration: 5000,
+  //     })
+  //     router.push('/login')
+  //     return
+  //   }
+  // }, [activeAccount, router])
 
   // Fetch purchased apparels
   const { data: availableRawMaterialIds, isFetched: isIdsFetched } = useReadContract({

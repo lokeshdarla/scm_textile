@@ -1,11 +1,11 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ExternalLink, Package, Plus, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { useActiveAccount, useContractEvents, useReadContract, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useConnect, useContractEvents, useReadContract, useSendTransaction } from 'thirdweb/react'
 import { useLoading } from '@/components/providers/loading-provider'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -15,6 +15,8 @@ import { contract } from '@/lib/client'
 import { parseEther } from 'viem'
 import { RawMaterial } from '@/constants'
 import { uploadJsonDirect } from '@/constants/uploadToPinata'
+import { sepolia } from 'thirdweb/chains'
+import { client } from '@/lib/client'
 // Define form data interface
 interface FormData {
   materialType: string
@@ -40,6 +42,14 @@ export default function FarmerDashboard() {
     unit: 'kg',
   })
 
+  const { connect } = useConnect({
+    client,
+    accountAbstraction: {
+      chain: sepolia,
+      sponsorGas: true,
+    },
+  })
+
   const [isConnected, setIsConnected] = useState(false)
 
   const activeAccount = useActiveAccount()
@@ -50,17 +60,8 @@ export default function FarmerDashboard() {
     setIsConnected(!!activeAccount)
   }, [activeAccount])
 
-  // Fetch raw materials
   const fetchRawMaterials = async () => {
     setIsLoading(true)
-    showLoading('Loading raw materials...')
-
-    if (!activeAccount) {
-      toast.error('Please connect your wallet to continue')
-      setIsLoading(false)
-      hideLoading()
-      return
-    }
 
     try {
       // First, get all raw material IDs
@@ -122,124 +123,140 @@ export default function FarmerDashboard() {
     }
   }
 
-  // Load data from the blockchain on component mount
+  // Fetch raw materials in useEffect
   useEffect(() => {
     fetchRawMaterials()
-  }, [])
+    // We're only calling this on mount or when activeAccount changes
+  }, [activeAccount, hideLoading, showLoading])
+
+  // Handle adding new raw material with useEffect for form submission
+  useEffect(() => {
+    if (!isSubmitting) return
+
+    const addMaterial = async () => {
+      showLoading('Adding new raw material to blockchain...')
+
+      // Validate inputs (can be moved outside this effect if preferred)
+      if (!formData.materialType || !formData.quantity || !formData.price || !formData.location) {
+        toast.error('Missing information', {
+          description: 'Please fill in all required fields',
+        })
+        setIsSubmitting(false)
+        hideLoading()
+        return
+      }
+
+      // Validate numeric inputs
+      const quantity = parseInt(formData.quantity)
+      const price = parseFloat(formData.price)
+
+      if (isNaN(quantity) || quantity <= 0) {
+        toast.error('Invalid quantity', {
+          description: 'Please enter a valid positive number',
+        })
+        setIsSubmitting(false)
+        hideLoading()
+        return
+      }
+
+      if (isNaN(price) || price <= 0) {
+        toast.error('Invalid price', {
+          description: 'Please enter a valid positive price',
+        })
+        setIsSubmitting(false)
+        hideLoading()
+        return
+      }
+
+      const data = {
+        name: formData.materialType,
+        quantity: formData.quantity,
+        price: formData.price,
+        location: formData.location,
+        description: formData.description,
+        unit: formData.unit,
+        walletAddress: activeAccount?.address,
+        timestamp: new Date().toISOString(),
+      }
+
+      try {
+        const qrCode = await uploadJsonDirect(data)
+
+        // Convert price from ETH to Wei
+        const priceInWei = parseEther(formData.price)
+
+        // Prepare the contract call
+        const transaction = await prepareContractCall({
+          contract,
+          method: 'function addRawMaterial(string qrCode, string name, string rawMaterialType, uint256 quantity, uint256 price)',
+          params: [qrCode.cid, formData.materialType, formData.materialType, BigInt(quantity), priceInWei],
+        })
+
+        // Send the transaction
+        const tx = await sendTx(transaction)
+
+        // Check transaction success
+        if (tx.transactionHash) {
+          toast.success('Raw material added successfully!', {
+            description: `Your raw material has been added to the blockchain`,
+            duration: 5000,
+          })
+
+          // Create new material object with transaction hash
+          const newId = BigInt(rawMaterials.length + 1)
+          const newRawMaterial: RawMaterial = {
+            id: newId,
+            farmerId: BigInt(activeAccount?.address || 0),
+            materialType: formData.materialType,
+            quantity: BigInt(quantity),
+            price: priceInWei,
+            location: formData.location,
+            isAvailable: true,
+            transactionHash: tx.transactionHash,
+            isUsedForFabric: false,
+          }
+
+          // Add to local state
+          setRawMaterials((prevMaterials) => [...prevMaterials, newRawMaterial])
+
+          // Reset form and close dialog
+          setFormData({
+            materialType: '',
+            quantity: '',
+            price: '',
+            location: '',
+            description: '',
+            unit: 'kg',
+          })
+
+          setAddMaterialDialogOpen(false)
+        } else {
+          throw new Error('Transaction failed')
+        }
+      } catch (error) {
+        console.error('Error submitting form:', error)
+        toast.error('Failed to add raw material', {
+          description: 'Please try again or check your wallet connection',
+        })
+      } finally {
+        setIsSubmitting(false)
+        hideLoading()
+      }
+    }
+
+    addMaterial()
+  }, [isSubmitting, formData, activeAccount, hideLoading, showLoading, sendTx, rawMaterials])
+
+  // Form submission handler - now just sets isSubmitting to true
+  const handleAddMaterial = (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+  }
 
   // Filter raw materials based on search term
   const filteredMaterials = rawMaterials.filter(
     (material) => material.materialType.toLowerCase().includes(searchTerm.toLowerCase()) || material.location.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  // Handle adding new raw material
-  const handleAddMaterial = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Validate inputs
-    if (!formData.materialType || !formData.quantity || !formData.price || !formData.location) {
-      toast.error('Missing information', {
-        description: 'Please fill in all required fields',
-      })
-      return
-    }
-
-    // Validate numeric inputs
-    const quantity = parseInt(formData.quantity)
-    const price = parseFloat(formData.price)
-
-    if (isNaN(quantity) || quantity <= 0) {
-      toast.error('Invalid quantity', {
-        description: 'Please enter a valid positive number',
-      })
-      return
-    }
-
-    if (isNaN(price) || price <= 0) {
-      toast.error('Invalid price', {
-        description: 'Please enter a valid positive price',
-      })
-      return
-    }
-
-    setIsSubmitting(true)
-    showLoading('Adding new raw material to blockchain...')
-
-    const data = {
-      name: formData.materialType,
-      quantity: formData.quantity,
-      price: formData.price,
-      location: formData.location,
-      description: formData.description,
-      unit: formData.unit,
-      walletAddress: activeAccount?.address,
-      timestamp: new Date().toISOString(),
-    }
-
-    const qrCode = await uploadJsonDirect(data)
-
-    try {
-      // Convert price from ETH to Wei
-      const priceInWei = parseEther(formData.price)
-
-      // Prepare the contract call
-      const transaction = await prepareContractCall({
-        contract,
-        method: 'function addRawMaterial(string qrCode, string name, string rawMaterialType, uint256 quantity, uint256 price)',
-        params: [qrCode.cid, formData.materialType, formData.materialType, BigInt(quantity), priceInWei],
-      })
-
-      // Send the transaction
-      const tx = await sendTx(transaction)
-
-      // Check transaction success
-      if (tx.transactionHash) {
-        toast.success('Raw material added successfully!', {
-          description: `Your raw material has been added to the blockchain`,
-          duration: 5000,
-        })
-
-        // Create new material object with transaction hash
-        const newId = BigInt(rawMaterials.length + 1)
-        const newRawMaterial: RawMaterial = {
-          id: newId,
-          farmerId: BigInt(activeAccount?.address || 0),
-          materialType: formData.materialType,
-          quantity: BigInt(quantity),
-          price: priceInWei,
-          location: formData.location,
-          isAvailable: true,
-          transactionHash: tx.transactionHash,
-          isUsedForFabric: false,
-        }
-
-        // Add to local state
-        setRawMaterials([...rawMaterials, newRawMaterial])
-
-        // Reset form and close dialog
-        setFormData({
-          materialType: '',
-          quantity: '',
-          price: '',
-          location: '',
-          description: '',
-          unit: 'kg',
-        })
-
-        setAddMaterialDialogOpen(false)
-      } else {
-        throw new Error('Transaction failed')
-      }
-    } catch (error) {
-      console.error('Error submitting form:', error)
-      toast.error('Failed to add raw material', {
-        description: 'Please try again or check your wallet connection',
-      })
-    } finally {
-      setIsSubmitting(false)
-      hideLoading()
-    }
-  }
 
   // Format price from Wei to ETH for display
   const formatPrice = (price: bigint) => {
@@ -257,7 +274,7 @@ export default function FarmerDashboard() {
         <Package className="w-16 h-16 mb-4 text-gray-400" />
         <h2 className="text-xl font-semibold text-gray-900">Wallet Not Connected</h2>
         <p className="mt-2 text-gray-500">Please connect your wallet to access the Farmer Dashboard</p>
-        <Button className="mt-4 bg-primary hover:bg-primary/90" onClick={() => {}}>
+        <Button className="mt-4 bg-primary hover:bg-primary/90" onClick={() => console.log(activeAccount)}>
           Connect Wallet
         </Button>
       </div>
@@ -268,6 +285,7 @@ export default function FarmerDashboard() {
     <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
       <div className="p-6 pb-0">
         <div className="flex items-center justify-between mb-6">
+          ``
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Farmer Dashboard</h1>
             <p className="mt-1 text-sm text-gray-500">Manage your raw materials and track sales</p>
@@ -298,7 +316,7 @@ export default function FarmerDashboard() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button onClick={fetchRawMaterials} variant="outline" className="border-gray-200" disabled={isLoading}>
+              <Button onClick={() => fetchRawMaterials()} variant="outline" className="border-gray-200" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <div className="w-4 h-4 mr-2 border-b-2 rounded-full animate-spin border-primary"></div>
