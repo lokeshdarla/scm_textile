@@ -14,7 +14,10 @@ import { Package, Plus, Search, ShoppingBag } from 'lucide-react'
 import { isLoggedIn } from '@/actions/login'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-
+import { RadioGroupItem } from '@/components/ui/radio-group'
+import { RadioGroup } from '@/components/ui/radio-group'
+import { parseEther } from 'viem'
+import { uploadJsonDirect } from '@/constants/uploadToPinata'
 // Define the PackagedStock type based on the smart contract struct
 interface PackagedStock {
   id: bigint
@@ -33,7 +36,7 @@ export default function AddForSalePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedStocks, setSelectedStocks] = useState<Set<string>>(new Set())
+  const [selectedStock, setSelectedStock] = useState<string>('')
 
   // Form state
   const [qrCode, setQrCode] = useState('')
@@ -45,18 +48,6 @@ export default function AddForSalePage() {
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
   const router = useRouter()
-
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
 
   // Fetch retailer's packaged stocks
   const { data: retailerStockIds, isFetched: isIdsFetched } = useReadContract({
@@ -92,7 +83,6 @@ export default function AddForSalePage() {
             }
           } catch (error) {
             console.error(`Error fetching packaged stock with ID ${id}:`, error)
-            // Continue with other stocks even if one fails
           }
         }
 
@@ -118,13 +108,7 @@ export default function AddForSalePage() {
 
   // Handle stock selection
   const handleStockSelection = (stockId: string) => {
-    const newSelectedStocks = new Set(selectedStocks)
-    if (newSelectedStocks.has(stockId)) {
-      newSelectedStocks.delete(stockId)
-    } else {
-      newSelectedStocks.add(stockId)
-    }
-    setSelectedStocks(newSelectedStocks)
+    setSelectedStock(stockId)
   }
 
   // Handle form submission
@@ -132,7 +116,7 @@ export default function AddForSalePage() {
     e.preventDefault()
 
     // Validate form
-    if (!qrCode || !name || !price || !brand || selectedStocks.size === 0) {
+    if (!name || !price || !brand || selectedStock === '') {
       toast.error('Please fill in all fields and select at least one packaged stock', {
         description: 'All fields are required to create a new retail product',
       })
@@ -153,16 +137,45 @@ export default function AddForSalePage() {
 
     try {
       // Convert selected stock IDs to bigint array
-      const packagedStockIds = Array.from(selectedStocks).map((id) => BigInt(id))
+      const ids = []
+      ids.push(selectedStock)
+      const packagedStockIds = ids.map((id) => BigInt(id))
+
+      // Find the selected packaged stock details
+      const packagedStockDetails = filteredStocks.find((stock) => stock.id.toString() === selectedStock)
+
+      if (!packagedStockDetails) {
+        throw new Error('Selected packaged stock not found')
+      }
+
+      // Create data object for QR code with proper serialization of BigInt values
+      const data = {
+        name: name,
+        brand: brand,
+        price: price,
+        packagedStock: {
+          id: packagedStockDetails.id.toString(),
+          name: packagedStockDetails.name,
+          quantity: packagedStockDetails.quantity.toString(),
+          price: packagedStockDetails.price.toString(),
+          qrCode: packagedStockDetails.qrCode,
+          timestamp: packagedStockDetails.timestamp.toString(),
+          apparelIds: packagedStockDetails.apparelIds.map((id) => id.toString()),
+        },
+        timestamp: new Date().toISOString(),
+      }
+
+      // Upload data to IPFS and get CID
+      const qrCodeData = await uploadJsonDirect(data)
 
       // Convert price to Wei (assuming price is in ETH)
-      const priceInWei = BigInt(Math.floor(priceValue * 1e18))
+      const priceInWei = parseEther(price)
 
       // Prepare the contract call
       const transaction = await prepareContractCall({
         contract,
         method: 'function addRetailProduct(string qrCode, uint256[] packagedStockIds, string name, uint256 price, string brand)',
-        params: [qrCode, packagedStockIds, name, priceInWei, brand],
+        params: [qrCodeData.cid, packagedStockIds, name, priceInWei, brand],
       })
 
       // Send the transaction
@@ -180,7 +193,7 @@ export default function AddForSalePage() {
         setName('')
         setPrice('')
         setBrand('')
-        setSelectedStocks(new Set())
+        setSelectedStock('')
 
         // Navigate back to retailer dashboard
         router.push('/retailer')
@@ -219,10 +232,6 @@ export default function AddForSalePage() {
                 <CardDescription className="mt-1 text-sm text-gray-500">Enter the details of your retail product</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="qrCode">QR Code</Label>
-                  <Input id="qrCode" placeholder="Enter QR code for the product" value={qrCode} onChange={(e) => setQrCode(e.target.value)} required />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name</Label>
                   <Input id="name" placeholder="Enter product name" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -284,7 +293,9 @@ export default function AddForSalePage() {
                         {filteredStocks.map((stock) => (
                           <TableRow key={stock.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
                             <TableCell className="p-4">
-                              <Checkbox checked={selectedStocks.has(stock.id.toString())} onCheckedChange={() => handleStockSelection(stock.id.toString())} />
+                              <RadioGroup value={selectedStock} onValueChange={handleStockSelection}>
+                                <RadioGroupItem value={stock.id.toString()} id={`radio-${stock.id}`} />
+                              </RadioGroup>
                             </TableCell>
                             <TableCell className="p-4 text-sm font-medium text-gray-900">{stock.name}</TableCell>
                             <TableCell className="p-4 text-sm text-gray-600">{stock.qrCode}</TableCell>
@@ -303,7 +314,7 @@ export default function AddForSalePage() {
             <Button type="button" variant="outline" onClick={() => router.push('/retailer')} className="border-gray-200">
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedStocks.size === 0}>
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSubmitting || selectedStock === ''}>
               {isSubmitting ? 'Creating...' : 'Create Product'}
             </Button>
           </div>

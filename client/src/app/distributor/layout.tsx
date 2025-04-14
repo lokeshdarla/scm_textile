@@ -1,5 +1,5 @@
 'use client'
-import React from 'react'
+import React, { useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import { NavItem } from '../components/Sidebar'
 import { useActiveAccount } from 'thirdweb/react'
@@ -30,6 +30,9 @@ const distributorsNavItems: NavItem[] = [
 export default function DistributorLayout({ children }: { children: React.ReactNode }) {
   const activeAccount = useActiveAccount()
   const router = useRouter()
+  useEffect(() => {
+    checkUserRole()
+  }, [activeAccount])
   const checkUserRole = async () => {
     try {
       if (!activeAccount?.address) {
@@ -42,7 +45,7 @@ export default function DistributorLayout({ children }: { children: React.ReactN
         params: [activeAccount?.address || '0x0000000000000000000000000000000000000000'],
       })
 
-      if (userDetails && userDetails.role !== Role.MANUFACTURER) {
+      if (userDetails && userDetails.role !== Role.DISTRIBUTOR) {
         router.push('/login')
       }
     } catch (error) {

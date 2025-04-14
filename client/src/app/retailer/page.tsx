@@ -38,18 +38,6 @@ export default function RetailerDashboard() {
   const { mutateAsync: sendTx } = useSendTransaction()
   const router = useRouter()
 
-  // Check if user is connected
-  useEffect(() => {
-    if (!activeAccount?.address) {
-      toast.error('No wallet connected', {
-        description: 'Please connect your wallet to access the dashboard',
-        duration: 5000,
-      })
-      router.push('/login')
-      return
-    }
-  }, [activeAccount, router])
-
   // Fetch available packaged stocks
   const { data: availableStockIds, isFetched: isIdsFetched } = useReadContract({
     contract,

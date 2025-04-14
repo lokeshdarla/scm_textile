@@ -27,15 +27,15 @@ export default function DistributorDashboard() {
   const { mutateAsync: sendTx } = useSendTransaction()
 
   // Fetch available apparels
-  const { data: availableApparelIds, isFetched: isIdsFetched } = useReadContract({
-    contract,
-    method: 'function getALlApparels() view returns (uint256[])',
-    params: [],
-  })
 
   // Fetch details for each apparel
   useEffect(() => {
     const fetchApparelDetails = async () => {
+      const { data: availableApparelIds, isFetched: isIdsFetched } = useReadContract({
+        contract,
+        method: 'function getALlApparels() view returns (uint256[])',
+        params: [],
+      })
       if (!availableApparelIds || !isIdsFetched) return
 
       setIsLoading(true)
@@ -73,10 +73,10 @@ export default function DistributorDashboard() {
       }
     }
 
-    if (activeAccount?.address && availableApparelIds && isIdsFetched) {
+    if (activeAccount?.address) {
       fetchApparelDetails()
     }
-  }, [availableApparelIds, isIdsFetched])
+  }, [activeAccount?.address])
 
   // Filter apparels based on search term
   const filteredApparels = apparels.filter(
