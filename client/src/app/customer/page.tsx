@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { readContract, prepareContractCall } from 'thirdweb'
-import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useSendAndConfirmTransaction } from 'thirdweb/react'
 import { contract } from '@/lib/client'
 import { useLoading } from '@/components/providers/loading-provider'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,7 @@ export default function RetailProductsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [retailProducts, setRetailProducts] = useState<RetailProduct[]>([])
-  const { mutateAsync: sendTx } = useSendTransaction()
+  const { mutateAsync: sendTx } = useSendAndConfirmTransaction()
   const [selectedProduct, setSelectedProduct] = useState<RetailProduct | null>(null)
   const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
 

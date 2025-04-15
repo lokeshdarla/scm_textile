@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useActiveAccount, useReadContract, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useReadContract, useSendAndConfirmTransaction } from 'thirdweb/react'
 import { useLoading } from '@/components/providers/loading-provider'
 import { toast } from 'sonner'
 import { prepareContractCall, readContract } from 'thirdweb'
@@ -46,7 +46,7 @@ export default function AddProductPage() {
 
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
-  const { mutateAsync: sendTx } = useSendTransaction()
+  const { mutateAsync: sendTx } = useSendAndConfirmTransaction()
   const router = useRouter()
 
   // Fetch purchased fabrics

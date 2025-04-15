@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { useActiveAccount, useReadContract, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useReadContract, useSendAndConfirmTransaction } from 'thirdweb/react'
 import { useLoading } from '@/components/providers/loading-provider'
 import { toast } from 'sonner'
 import { prepareContractCall, readContract } from 'thirdweb'
@@ -29,7 +29,7 @@ export default function ManufacturerDashboard() {
 
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
-  const { mutateAsync: sendTx } = useSendTransaction()
+  const { mutateAsync: sendTx } = useSendAndConfirmTransaction()
 
   // Fetch available fabrics
   const { data: availableFabricIds, isFetched: isIdsFetched } = useReadContract({

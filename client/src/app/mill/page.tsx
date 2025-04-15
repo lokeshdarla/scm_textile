@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ExternalLink, Package, RefreshCcw, Search, ShoppingCart } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { useActiveAccount, useReadContract, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useReadContract, useSendAndConfirmTransaction } from 'thirdweb/react'
 import { useLoading } from '@/components/providers/loading-provider'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -43,7 +43,7 @@ export default function MillDashboard() {
 
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
-  const { mutateAsync: sendTx } = useSendTransaction()
+  const { mutateAsync: sendTx } = useSendAndConfirmTransaction()
   const router = useRouter()
 
   // Check if user is connected

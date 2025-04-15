@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { useActiveAccount, useReadContract, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useReadContract, useSendAndConfirmTransaction } from 'thirdweb/react'
 import { useLoading } from '@/components/providers/loading-provider'
 import { toast } from 'sonner'
 import { prepareContractCall, readContract } from 'thirdweb'
@@ -27,7 +27,7 @@ export default function DistributorDashboard() {
   const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
-  const { mutateAsync: sendTx } = useSendTransaction()
+  const { mutateAsync: sendTx } = useSendAndConfirmTransaction()
 
   // Fetch available apparels
 
