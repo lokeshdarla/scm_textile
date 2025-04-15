@@ -25,6 +25,7 @@ export default function ManufacturerDashboard() {
   const [selectedFabric, setSelectedFabric] = useState<Fabric | null>(null)
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedQrCode, setSelectedQrCode] = useState<string | null>(null)
   const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
 
   const activeAccount = useActiveAccount()
@@ -48,7 +49,9 @@ export default function ManufacturerDashboard() {
       try {
         const fabricList: Fabric[] = []
 
-        for (const id of availableFabricIds) {
+        const uniqueFabricIds = [...new Set(availableFabricIds.map((id) => BigInt(id)))]
+
+        for (const id of uniqueFabricIds) {
           try {
             const fabricData = await readContract({
               contract,
@@ -216,8 +219,14 @@ export default function ManufacturerDashboard() {
                         <TableCell className="p-4 text-sm text-gray-600">{fabric.composition}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatPrice(fabric.price)}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">
-                          <Button onClick={() => setQrCodeDialogOpen(true)}>View QR Code</Button>
-                          <QrCodeModal qrCode={fabric.qrCode} qrCodeDialogOpen={qrCodeDialogOpen} setQrCodeDialogOpen={setQrCodeDialogOpen} />
+                          <Button
+                            onClick={() => {
+                              setSelectedQrCode(fabric.qrCode)
+                              setQrCodeDialogOpen(true)
+                            }}
+                          >
+                            View QR Code
+                          </Button>
                         </TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatDate(fabric.timestamp)}</TableCell>
                         <TableCell className="p-4">
@@ -291,6 +300,16 @@ export default function ManufacturerDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Move QR Code Modal outside the table */}
+      <QrCodeModal
+        qrCode={selectedQrCode || ''}
+        qrCodeDialogOpen={qrCodeDialogOpen}
+        setQrCodeDialogOpen={(open) => {
+          setQrCodeDialogOpen(open)
+          if (!open) setSelectedQrCode(null)
+        }}
+      />
     </div>
   )
 }

@@ -67,7 +67,8 @@ export default function AddProductPage() {
       setIsLoading(true)
 
       try {
-        const fabricList: Fabric[] = []
+        const fabricSet = new Set<string>()
+        const fetchedFabrics: Fabric[] = []
 
         for (const id of purchasedFabricIds) {
           try {
@@ -78,16 +79,18 @@ export default function AddProductPage() {
               params: [id],
             })
 
-            if (fabricData && fabricData.manufacturer === activeAccount?.address && !fabricData.isUsedForApparel) {
-              fabricList.push(fabricData)
+            const isValid = fabricData && fabricData.manufacturer === activeAccount?.address && !fabricData.isUsedForApparel
+
+            if (isValid && !fabricSet.has(fabricData.id.toString())) {
+              fabricSet.add(fabricData.id.toString())
+              fetchedFabrics.push(fabricData)
             }
           } catch (error) {
             console.error(`Error fetching fabric with ID ${id}:`, error)
-            // Continue with other fabrics even if one fails
           }
         }
 
-        setPurchasedFabrics(fabricList)
+        setPurchasedFabrics(fetchedFabrics)
       } catch (error) {
         console.error('Error loading fabrics:', error)
         toast.error('Failed to load fabrics', {
@@ -98,11 +101,10 @@ export default function AddProductPage() {
         setIsLoading(false)
       }
     }
-
     if (activeAccount?.address && purchasedFabricIds && isIdsFetched) {
       fetchFabricDetails()
     }
-  }, [activeAccount, purchasedFabricIds, isIdsFetched])
+  }, [activeAccount?.address, purchasedFabricIds, isIdsFetched])
 
   // Filter fabrics based on search term
   const filteredFabrics = purchasedFabrics.filter((fabric) => fabric.name.toLowerCase().includes(searchTerm.toLowerCase()) || fabric.composition.toLowerCase().includes(searchTerm.toLowerCase()))

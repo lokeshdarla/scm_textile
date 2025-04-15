@@ -28,6 +28,10 @@ export default function CustomerProfilePage() {
   const { showLoading, hideLoading } = useLoading()
   const router = useRouter()
 
+  const getExplorerUrl = (txHash: string) => {
+    return `https://sepolia.etherscan.io/tx/${txHash}`
+  }
+
   // Fetch purchased products
   const fetchPurchasedProducts = async () => {
     if (!activeAccount?.address) return
@@ -256,7 +260,7 @@ export default function CustomerProfilePage() {
                           <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
                           <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
                           <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Purchase Date</TableHead>
-                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
+                          {/* <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead> */}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -272,11 +276,11 @@ export default function CustomerProfilePage() {
                             </TableCell>
                             <TableCell className="p-4 text-sm text-gray-600">{formatPrice(product.price)}</TableCell>
                             <TableCell className="p-4 text-sm text-gray-600">{formatDate(product.timestamp)}</TableCell>
-                            <TableCell className="p-4 text-sm text-gray-600">
+                            {/* <TableCell className="p-4 text-sm text-gray-600">
                               <Button onClick={() => router.push(`/customer/product/${product.id}`)} className="bg-primary hover:bg-primary/90">
                                 View Details
                               </Button>
-                            </TableCell>
+                            </TableCell> */}
                           </TableRow>
                         ))}
                       </TableBody>
