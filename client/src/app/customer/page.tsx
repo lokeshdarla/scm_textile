@@ -13,6 +13,9 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Package, Search, RefreshCw } from 'lucide-react'
 import { RetailProduct } from '@/constants'
+import Image from 'next/image'
+import { generateQrFromUrl } from '@/constants/uploadToPinata'
+import QrCodeModal from '../components/QrCodeModal'
 
 export default function RetailProductsPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -20,6 +23,7 @@ export default function RetailProductsPage() {
   const [retailProducts, setRetailProducts] = useState<RetailProduct[]>([])
   const { mutateAsync: sendTx } = useSendTransaction()
   const [selectedProduct, setSelectedProduct] = useState<RetailProduct | null>(null)
+  const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
 
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
@@ -58,7 +62,8 @@ export default function RetailProductsPage() {
           })
 
           if (productData && productData.isAvailable === true) {
-            products.push(productData)
+            const qrCode = await generateQrFromUrl(productData.qrCode)
+            products.push({ ...productData, qrCode })
           }
         } catch (error) {
           console.error(`Error fetching retail product with ID ${id}:`, error)
@@ -206,6 +211,7 @@ export default function RetailProductsPage() {
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Brand</TableHead>
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
+                        <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Retailer</TableHead>
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Status</TableHead>
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Date Added</TableHead>
                         <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
@@ -217,8 +223,12 @@ export default function RetailProductsPage() {
                           <TableCell className="p-4 text-sm font-medium text-gray-900">#{product.id.toString()}</TableCell>
                           <TableCell className="p-4 text-sm text-gray-900">{product.name}</TableCell>
                           <TableCell className="p-4 text-sm text-gray-600 capitalize">{product.brand}</TableCell>
-                          <TableCell className="p-4 text-sm text-gray-600">{product.qrCode}</TableCell>
+                          <TableCell className="p-4 text-sm text-gray-600">
+                            <Button onClick={() => setQrCodeDialogOpen(true)}>View QR Code</Button>
+                            <QrCodeModal qrCode={product.qrCode} qrCodeDialogOpen={qrCodeDialogOpen} setQrCodeDialogOpen={setQrCodeDialogOpen} />
+                          </TableCell>
                           <TableCell className="p-4 text-sm text-gray-600">{formatPrice(product.price)}</TableCell>
+                          <TableCell className="p-4 text-sm text-gray-600">{product.retailer}</TableCell>
                           <TableCell className="p-4">
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${product.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}

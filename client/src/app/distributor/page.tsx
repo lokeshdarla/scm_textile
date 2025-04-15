@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Apparel } from '@/constants'
 import QrCodeModal from '../components/QrCodeModal'
 import { generateQrFromUrl } from '@/constants/uploadToPinata'
+import Image from 'next/image'
 
 export default function DistributorDashboard() {
   const [apparels, setApparels] = useState<Apparel[]>([])
@@ -290,7 +291,7 @@ export default function DistributorDashboard() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium text-gray-500">QR Code:</span>
-                  <span className="text-sm font-medium text-gray-900">{selectedApparel.qrCode}</span>
+                  <Image src={selectedApparel.qrCode} alt="QR Code" width={100} height={100} />
                 </div>
               </div>
               <div className="p-3 text-sm text-center rounded-md bg-primary/10 text-primary">

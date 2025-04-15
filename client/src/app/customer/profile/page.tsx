@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Package, User, History, RefreshCw, QrCode } from 'lucide-react'
 import { RetailProduct } from '@/constants'
+import Image from 'next/image'
+import { generateQrFromUrl } from '@/constants/uploadToPinata'
 
 export default function CustomerProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -55,7 +57,8 @@ export default function CustomerProfilePage() {
 
           // Only include products purchased by the current user
           if (productData && productData.customer.toLowerCase() === activeAccount.address.toLowerCase() && !productData.isAvailable) {
-            products.push(productData)
+            const qrCode = await generateQrFromUrl(productData.qrCode)
+            products.push({ ...productData, qrCode })
           }
         } catch (error) {
           console.error(`Error fetching retail product with ID ${id}:`, error)
@@ -128,7 +131,7 @@ export default function CustomerProfilePage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
+    <div className="flex flex-col h-full min-h-screen bg-gray-50/40">
       <div className="p-6 pb-0">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -264,8 +267,7 @@ export default function CustomerProfilePage() {
                             <TableCell className="p-4 text-sm text-gray-600 capitalize">{product.brand}</TableCell>
                             <TableCell className="p-4 text-sm text-gray-600">
                               <div className="flex items-center">
-                                <QrCode className="w-4 h-4 mr-2 text-gray-400" />
-                                {product.qrCode}
+                                <Image src={product.qrCode} alt="QR Code" width={100} height={100} />
                               </div>
                             </TableCell>
                             <TableCell className="p-4 text-sm text-gray-600">{formatPrice(product.price)}</TableCell>
@@ -324,8 +326,7 @@ export default function CustomerProfilePage() {
                           </div>
                           <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100">
                             <div className="flex items-center">
-                              <QrCode className="w-4 h-4 mr-2 text-gray-400" />
-                              <span className="text-sm text-gray-500">QR Code: {product.qrCode}</span>
+                              <Image src={product.qrCode} alt="QR Code" width={100} height={100} />
                             </div>
                             <Button onClick={() => router.push(`/customer/product/${product.id}`)} className="bg-primary hover:bg-primary/90">
                               View Details

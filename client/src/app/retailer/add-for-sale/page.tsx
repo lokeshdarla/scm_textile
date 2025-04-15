@@ -18,6 +18,8 @@ import { RadioGroupItem } from '@/components/ui/radio-group'
 import { RadioGroup } from '@/components/ui/radio-group'
 import { parseEther } from 'viem'
 import { uploadJsonDirect } from '@/constants/uploadToPinata'
+import Image from 'next/image'
+import { generateQrFromUrl } from '@/constants/uploadToPinata'
 // Define the PackagedStock type based on the smart contract struct
 interface PackagedStock {
   id: bigint
@@ -30,6 +32,7 @@ interface PackagedStock {
   name: string
   quantity: bigint
   price: bigint
+  isUsedForRetailProduct: boolean
 }
 
 export default function AddForSalePage() {
@@ -74,12 +77,13 @@ export default function AddForSalePage() {
             const stockData = await readContract({
               contract,
               method:
-                'function getPackagedStock(uint256 packagedStockId) view returns ((uint256 id, address distributor, address retailer, string qrCode, uint256[] apparelIds, bool isAvailable, uint256 timestamp, string name, uint256 quantity, uint256 price))',
+                'function getPackagedStock(uint256 packagedStockId) view returns ((uint256 id, address distributor, address retailer, string qrCode, uint256[] apparelIds, bool isAvailable, uint256 timestamp, string name, uint256 quantity, uint256 price, bool isUsedForRetailProduct))',
               params: [id],
             })
 
-            if (stockData && stockData.retailer === activeAccount?.address) {
-              stockList.push(stockData)
+            if (stockData && stockData.retailer === activeAccount?.address && stockData.isUsedForRetailProduct === false) {
+              const qrCode = await generateQrFromUrl(stockData.qrCode)
+              stockList.push({ ...stockData, qrCode })
             }
           } catch (error) {
             console.error(`Error fetching packaged stock with ID ${id}:`, error)
@@ -286,6 +290,8 @@ export default function AddForSalePage() {
                           <TableHead className="w-10 h-12 px-4 text-xs font-medium text-gray-500"></TableHead>
                           <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Name</TableHead>
                           <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
+                          <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Distributor</TableHead>
+
                           <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Quantity</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -298,7 +304,10 @@ export default function AddForSalePage() {
                               </RadioGroup>
                             </TableCell>
                             <TableCell className="p-4 text-sm font-medium text-gray-900">{stock.name}</TableCell>
-                            <TableCell className="p-4 text-sm text-gray-600">{stock.qrCode}</TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600">
+                              <Image src={stock.qrCode} alt="QR Code" width={100} height={100} />
+                            </TableCell>
+                            <TableCell className="p-4 text-sm text-gray-600">{stock.distributor}</TableCell>
                             <TableCell className="p-4 text-sm text-gray-600">{stock.quantity.toString()}</TableCell>
                           </TableRow>
                         ))}

@@ -12,7 +12,9 @@ import { useRouter } from 'next/navigation'
 import { Package, Search, ShoppingCart } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-
+import QrCodeModal from '../components/QrCodeModal'
+import { generateQrFromUrl } from '@/constants/uploadToPinata'
+import Image from 'next/image'
 // Define the PackagedStock type based on the smart contract struct
 interface PackagedStock {
   id: bigint
@@ -32,7 +34,7 @@ export default function RetailerDashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStock, setSelectedStock] = useState<PackagedStock | null>(null)
   const [isPurchaseDialogOpen, setIsPurchaseDialogOpen] = useState(false)
-
+  const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
@@ -68,7 +70,8 @@ export default function RetailerDashboard() {
             })
 
             if (stockData && stockData.isAvailable === true) {
-              stockList.push(stockData)
+              const qrCode = await generateQrFromUrl(stockData.qrCode)
+              stockList.push({ ...stockData, qrCode })
             }
           } catch (error) {
             console.error(`Error fetching packaged stock with ID ${id}:`, error)
@@ -205,7 +208,7 @@ export default function RetailerDashboard() {
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Quantity</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
-                      <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Date Added</TableHead>
+                      <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Distributor</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -214,10 +217,14 @@ export default function RetailerDashboard() {
                       <TableRow key={stock.id.toString()} className="transition-colors border-b border-gray-100 hover:bg-gray-50/50">
                         <TableCell className="p-4 text-sm font-medium text-gray-900">#{stock.id.toString()}</TableCell>
                         <TableCell className="p-4 text-sm font-medium text-gray-900">{stock.name}</TableCell>
-                        <TableCell className="p-4 text-sm text-gray-600">{stock.qrCode}</TableCell>
+                        <TableCell className="p-4 text-sm text-gray-600">
+                          <Button onClick={() => setQrCodeDialogOpen(true)}>View QR Code</Button>
+                          <QrCodeModal qrCode={stock.qrCode} qrCodeDialogOpen={qrCodeDialogOpen} setQrCodeDialogOpen={setQrCodeDialogOpen} />
+                        </TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{stock.quantity.toString()}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatPrice(stock.price)}</TableCell>
-                        <TableCell className="p-4 text-sm text-gray-600">{formatDate(stock.timestamp)}</TableCell>
+
+                        <TableCell className="p-4 text-sm text-gray-600">{stock.distributor}</TableCell>
                         <TableCell className="p-4">
                           <Button
                             size="sm"
@@ -257,7 +264,7 @@ export default function RetailerDashboard() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">QR Code</p>
-                  <p className="text-sm text-gray-900">{selectedStock.qrCode}</p>
+                  <Image src={selectedStock.qrCode} alt="QR Code" width={100} height={100} />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Quantity</p>
