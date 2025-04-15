@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { prepareContractCall } from 'thirdweb'
 import { contract, client } from '@/lib/client'
-import { useActiveAccount, useSendTransaction, useReadContract } from 'thirdweb/react'
+import { useActiveAccount, useSendAndConfirmTransaction, useReadContract } from 'thirdweb/react'
 import { useRouter } from 'next/navigation'
 import { Loader2, UserCircle2, Key, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
@@ -63,7 +63,7 @@ export default function Page() {
     params: [account?.address || '0x0000000000000000000000000000000000000000'],
   })
 
-  const { mutateAsync: sendTx } = useSendTransaction()
+  const { mutateAsync: sendTx } = useSendAndConfirmTransaction()
 
   useEffect(() => {
     if (userDetails && isUserDetailsFetched) {
