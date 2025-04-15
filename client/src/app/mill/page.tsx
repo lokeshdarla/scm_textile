@@ -15,6 +15,8 @@ import { contract } from '@/lib/client'
 import { useRouter } from 'next/navigation'
 import { parseEther } from 'viem'
 import { isLoggedIn } from '@/actions/login'
+import { generateQrFromUrl } from '@/constants/uploadToPinata'
+import QrCodeModal from '../components/QrCodeModal'
 
 // Define the RawMaterial type based on the smart contract struct
 interface RawMaterial {
@@ -37,6 +39,7 @@ export default function MillDashboard() {
   const [selectedMaterial, setSelectedMaterial] = useState<RawMaterial | null>(null)
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
 
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
@@ -83,7 +86,8 @@ export default function MillDashboard() {
         console.log(materialData)
 
         if (materialData && materialData.isAvailable) {
-          materials.push(materialData)
+          const qrCode = await generateQrFromUrl(materialData.qrCode)
+          materials.push({ ...materialData, qrCode })
         }
       }
 
@@ -233,6 +237,7 @@ export default function MillDashboard() {
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Type</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Quantity</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
+                      <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Date Added</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
                     </TableRow>
@@ -245,6 +250,10 @@ export default function MillDashboard() {
                         <TableCell className="p-4 text-sm text-gray-600">{material.rawMaterialType}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{material.quantity.toString()}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatPrice(material.price)}</TableCell>
+                        <TableCell className="p-4 text-sm text-gray-600">
+                          <Button onClick={() => setQrCodeDialogOpen(true)}>View QR Code</Button>
+                          <QrCodeModal qrCode={material.qrCode} qrCodeDialogOpen={qrCodeDialogOpen} setQrCodeDialogOpen={setQrCodeDialogOpen} />
+                        </TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatDate(material.timestamp)}</TableCell>
                         <TableCell className="p-4">
                           <div className="flex items-center space-x-2">

@@ -28,8 +28,9 @@ export async function uploadJsonDirect(json: any) {
 }
 
 
-export async function generateQrFromUrl(url: string): Promise<string> {
+export async function generateQrFromUrl(cid: string): Promise<string> {
   try {
+    const url = `https://gateway.pinata.cloud/ipfs/${cid}`;
     const qrDataUrl = await QRCode.toDataURL(url);
     return qrDataUrl;
   } catch (err) {

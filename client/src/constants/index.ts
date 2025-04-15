@@ -27,7 +27,8 @@ export interface RetailProduct {
 
 export interface RawMaterial {
   id: bigint
-  farmerId: bigint
+  farmerId: bigint,
+  qrCode: string,
   materialType: string
   quantity: bigint
   price: bigint

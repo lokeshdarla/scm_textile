@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation'
 import { Package, Search, ShoppingCart } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Fabric } from '@/constants'
+import QrCodeModal from '../components/QrCodeModal'
+import { generateQrFromUrl } from '@/constants/uploadToPinata'
 
 // Define the Fabric type based on the smart contract struct
 
@@ -23,6 +25,7 @@ export default function ManufacturerDashboard() {
   const [selectedFabric, setSelectedFabric] = useState<Fabric | null>(null)
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
 
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
@@ -55,7 +58,8 @@ export default function ManufacturerDashboard() {
             })
 
             if (fabricData && fabricData.isAvailable === true) {
-              fabricList.push(fabricData)
+              const qrCode = await generateQrFromUrl(fabricData.qrCode)
+              fabricList.push({ ...fabricData, qrCode })
             }
           } catch (error) {
             console.error(`Error fetching fabric with ID ${id}:`, error)
@@ -199,6 +203,7 @@ export default function ManufacturerDashboard() {
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Name</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Composition</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
+                      <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Date Added</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
                     </TableRow>
@@ -210,6 +215,10 @@ export default function ManufacturerDashboard() {
                         <TableCell className="p-4 text-sm text-gray-600">{fabric.name}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{fabric.composition}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatPrice(fabric.price)}</TableCell>
+                        <TableCell className="p-4 text-sm text-gray-600">
+                          <Button onClick={() => setQrCodeDialogOpen(true)}>View QR Code</Button>
+                          <QrCodeModal qrCode={fabric.qrCode} qrCodeDialogOpen={qrCodeDialogOpen} setQrCodeDialogOpen={setQrCodeDialogOpen} />
+                        </TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatDate(fabric.timestamp)}</TableCell>
                         <TableCell className="p-4">
                           <div className="flex items-center space-x-2">

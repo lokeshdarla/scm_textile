@@ -14,9 +14,10 @@ import { prepareContractCall, readContract } from 'thirdweb'
 import { contract } from '@/lib/client'
 import { parseEther } from 'viem'
 import { RawMaterial } from '@/constants'
-import { uploadJsonDirect } from '@/constants/uploadToPinata'
+import { generateQrFromUrl, uploadJsonDirect } from '@/constants/uploadToPinata'
 import { sepolia } from 'thirdweb/chains'
 import { client } from '@/lib/client'
+import Image from 'next/image'
 // Define form data interface
 interface FormData {
   name: string
@@ -34,6 +35,7 @@ export default function FarmerDashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [addMaterialDialogOpen, setAddMaterialDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
   const [formData, setFormData] = useState<FormData>({
     name: '',
     materialType: '',
@@ -92,9 +94,11 @@ export default function FarmerDashboard() {
 
           if (materialData && materialData.farmer === activeAccount?.address) {
             // Convert the contract data to our RawMaterial interface
+            const qrCode = await generateQrFromUrl(materialData.qrCode)
             const material: RawMaterial = {
               id: materialData.id,
               farmerId: BigInt(materialData.farmer),
+              qrCode: qrCode,
               materialType: materialData.rawMaterialType,
               quantity: materialData.quantity,
               price: materialData.price,
@@ -202,10 +206,12 @@ export default function FarmerDashboard() {
         })
 
         // Create new material object with transaction hash
+        const qrCodeUrl = await generateQrFromUrl(qrCode.cid)
         const newId = BigInt(rawMaterials.length + 1)
         const newRawMaterial: RawMaterial = {
           id: newId,
           farmerId: BigInt(activeAccount?.address || 0),
+          qrCode: qrCodeUrl,
           materialType: formData.materialType,
           quantity: BigInt(quantity),
           price: priceInWei,
@@ -282,7 +288,6 @@ export default function FarmerDashboard() {
     <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50/40">
       <div className="p-6 pb-0">
         <div className="flex items-center justify-between mb-6">
-          ``
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Farmer Dashboard</h1>
             <p className="mt-1 text-sm text-gray-500">Manage your raw materials and track sales</p>
@@ -349,7 +354,7 @@ export default function FarmerDashboard() {
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Material Type</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Quantity</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
-                      <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Location</TableHead>
+                      <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Qr Code</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Status</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
                     </TableRow>
@@ -361,7 +366,10 @@ export default function FarmerDashboard() {
                         <TableCell className="p-4 text-sm text-gray-600">{material.materialType}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{material.quantity.toString()}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatPrice(material.price)}</TableCell>
-                        <TableCell className="p-4 text-sm text-gray-600">{material.location}</TableCell>
+                        <TableCell className="p-4 text-sm text-gray-600">
+                          <Button onClick={() => setQrCodeDialogOpen(true)}>View Qr Code</Button>
+                          <QrCodeModal qrCode={material.qrCode} qrCodeDialogOpen={qrCodeDialogOpen} setQrCodeDialogOpen={setQrCodeDialogOpen} />
+                        </TableCell>
                         <TableCell className="p-4">
                           <span
                             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${material.isAvailable ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}
@@ -500,5 +508,31 @@ export default function FarmerDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+const QrCodeModal = ({ qrCode, qrCodeDialogOpen, setQrCodeDialogOpen }: { qrCode: string; qrCodeDialogOpen: boolean; setQrCodeDialogOpen: (open: boolean) => void }) => {
+  return (
+    <Dialog open={qrCodeDialogOpen} onOpenChange={setQrCodeDialogOpen}>
+      <DialogContent className="flex flex-col items-center justify-center p-6" aria-labelledby="qr-code-title">
+        <h3 id="qr-code-title" className="mb-4 text-lg font-medium">
+          Raw Material QR Code
+        </h3>
+
+        {qrCode && (
+          <div className="p-4 bg-white rounded-lg">
+            <Image src={qrCode} alt="QR Code" width={1000} height={1000} className="w-40 h-40" />
+          </div>
+        )}
+
+        <p className="mt-4 text-sm text-gray-500">Scan this QR code to verify product authenticity</p>
+
+        <DialogFooter className="flex items-center justify-center w-full gap-2 mt-6">
+          <Button variant="outline" onClick={() => setQrCodeDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
