@@ -13,6 +13,8 @@ import { Package, Search, ShoppingCart } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Apparel } from '@/constants'
+import QrCodeModal from '../components/QrCodeModal'
+import { generateQrFromUrl } from '@/constants/uploadToPinata'
 
 export default function DistributorDashboard() {
   const [apparels, setApparels] = useState<Apparel[]>([])
@@ -21,7 +23,7 @@ export default function DistributorDashboard() {
   const [selectedApparel, setSelectedApparel] = useState<Apparel | null>(null)
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
+  const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false)
   const activeAccount = useActiveAccount()
   const { showLoading, hideLoading } = useLoading()
   const { mutateAsync: sendTx } = useSendTransaction()
@@ -55,7 +57,8 @@ export default function DistributorDashboard() {
             })
 
             if (apparelData && apparelData.isAvailable === true) {
-              apparelList.push(apparelData)
+              const qrCode = await generateQrFromUrl(apparelData.qrCode)
+              apparelList.push({ ...apparelData, qrCode })
             }
           } catch (error) {
             console.error(`Error fetching apparel with ID ${id}:`, error)
@@ -210,6 +213,7 @@ export default function DistributorDashboard() {
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Size</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Price (ETH)</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Manufacturer</TableHead>
+                      <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">QR Code</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Date Added</TableHead>
                       <TableHead className="h-12 px-4 text-xs font-medium text-gray-500">Actions</TableHead>
                     </TableRow>
@@ -223,6 +227,10 @@ export default function DistributorDashboard() {
                         <TableCell className="p-4 text-sm text-gray-600">{apparel.size}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatPrice(apparel.price)}</TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatAddress(apparel.manufacturer)}</TableCell>
+                        <TableCell className="p-4 text-sm text-gray-600">
+                          <Button onClick={() => setQrCodeDialogOpen(true)}>View QR Code</Button>
+                          <QrCodeModal qrCode={apparel.qrCode} qrCodeDialogOpen={qrCodeDialogOpen} setQrCodeDialogOpen={setQrCodeDialogOpen} />
+                        </TableCell>
                         <TableCell className="p-4 text-sm text-gray-600">{formatDate(apparel.timestamp)}</TableCell>
                         <TableCell className="p-4">
                           <div className="flex items-center space-x-2">

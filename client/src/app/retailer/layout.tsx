@@ -45,7 +45,7 @@ export default function ManufacturersLayout({ children }: { children: React.Reac
         params: [activeAccount?.address || '0x0000000000000000000000000000000000000000'],
       })
 
-      if (userDetails && userDetails.role !== Role.DISTRIBUTOR) {
+      if (userDetails && userDetails.role !== Role.RETAILER) {
         router.push('/login')
       }
     } catch (error) {

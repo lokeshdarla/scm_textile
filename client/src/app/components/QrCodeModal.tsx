@@ -19,7 +19,7 @@ const QrCodeModal = ({ qrCode, qrCodeDialogOpen, setQrCodeDialogOpen }: { qrCode
           </div>
         )}
 
-        <p className="mt-4 text-sm text-gray-500">Scan this QR code to verify product authenticity</p>
+        <p className="mt-4 text-sm text-gray-500">Scan this QR code to verify authenticity</p>
 
         <DialogFooter className="flex items-center justify-center w-full gap-2 mt-6">
           <Button variant="outline" onClick={() => setQrCodeDialogOpen(false)}>
