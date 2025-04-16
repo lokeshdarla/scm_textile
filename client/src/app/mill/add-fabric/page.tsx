@@ -196,9 +196,15 @@ export default function AddFabricPage() {
         name: name,
         composition: composition,
         price: price,
-        rawMaterialId: rawMaterial?.id.toString() || '',
-        rawMaterialName: rawMaterial?.name || '',
-        rawMaterialType: rawMaterial?.rawMaterialType || '',
+        rawMaterial: rawMaterial
+          ? {
+              ...rawMaterial,
+              id: rawMaterial.id.toString(),
+              quantity: rawMaterial.quantity.toString(),
+              price: rawMaterial.price.toString(),
+              timestamp: rawMaterial.timestamp.toString(),
+            }
+          : null,
         timestamp: new Date().toISOString(),
       }
 
