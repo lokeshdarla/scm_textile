@@ -32,6 +32,34 @@ interface Apparel {
   isUsedForPackagedStock: boolean
 }
 
+interface Fabric {
+  id: bigint
+  mill: string
+  manufacturer: string
+  qrCode: string
+  rawMaterialIds: readonly bigint[]
+  isAvailable: boolean
+  timestamp: bigint
+  name: string
+  composition: string
+  price: bigint
+  isUsedForApparel: boolean
+}
+
+interface RawMaterial {
+  id: bigint
+  farmer: string
+  mill: string
+  qrCode: string
+  isAvailable: boolean
+  timestamp: bigint
+  name: string
+  rawMaterialType: string
+  quantity: bigint
+  price: bigint
+  isUsedForFabric: boolean
+}
+
 export default function AddForShippingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -125,7 +153,7 @@ export default function AddForShippingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validate form
+    // Basic form validation
     if (!name || !quantity || !price || selectedApparel === '') {
       toast.error('Please fill in all fields and select at least one apparel product', {
         description: 'All fields are required to create a new packaged stock',
@@ -133,7 +161,6 @@ export default function AddForShippingPage() {
       return
     }
 
-    // Validate quantity is a positive integer
     const quantityValue = parseInt(quantity)
     if (isNaN(quantityValue) || quantityValue <= 0) {
       toast.error('Invalid quantity', {
@@ -142,61 +169,85 @@ export default function AddForShippingPage() {
       return
     }
 
-    // Validate price is a positive number
-    const priceValue = parseFloat(price)
-    if (isNaN(priceValue) || priceValue <= 0) {
-      toast.error('Invalid price', {
-        description: 'Please enter a valid positive number for the price',
-      })
-      return
-    }
-
     setIsSubmitting(true)
     showLoading('Creating new packaged stock...')
 
     try {
-      // Convert selected apparel IDs to bigint array
-      const ids = []
-      ids.push(selectedApparel)
-      const apparelIds = ids.map((id) => BigInt(id))
+      const apparelIds = [BigInt(selectedApparel)]
 
-      // Convert price to Wei (assuming price is in ETH)
       const priceInWei = parseEther(price)
 
-      const apparel = filteredApparels.find((apparel) => apparel.id === apparelIds[0])
+      const apparel = filteredApparels.find((a) => a.id.toString() === apparelIds[0].toString())
+      const fabricId = apparel?.fabricIds?.[0] ? apparel.fabricIds[0] : BigInt(0)
 
-      // Convert BigInt values to strings for JSON serialization
-      const serializedApparel = apparel
-        ? {
-            ...apparel,
-            id: apparel.id.toString(),
-            timestamp: apparel.timestamp.toString(),
-            price: apparel.price.toString(),
-            fabricIds: apparel.fabricIds.map((id) => id.toString()),
-          }
-        : null
+      let fabricDetails: Fabric = await readContract({
+        contract,
+        method:
+          'function getFabric(uint256 fabricId) view returns ((uint256 id, address mill, address manufacturer, string qrCode, uint256[] rawMaterialIds, bool isAvailable, uint256 timestamp, string name, string composition, uint256 price,bool isUsedForApparel))',
+        params: [fabricId],
+      })
 
-      const data = {
-        name: name,
-        apparel: serializedApparel,
-        quantity: quantity,
-        price: price,
+      console.log(fabricDetails)
+
+      const rawMaterialId = fabricDetails?.rawMaterialIds?.[0] ? fabricDetails.rawMaterialIds[0] : BigInt(0)
+
+      let rawMaterialDetails: RawMaterial = await readContract({
+        contract,
+        method:
+          'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price, bool isUsedForFabric))',
+        params: [rawMaterialId],
+      })
+
+      console.log(rawMaterialDetails)
+
+      // Serialize all data for IPFS
+      const minimalData = {
+        name,
+        quantity,
+        price,
         timestamp: new Date().toISOString(),
+        apparel: apparel
+          ? {
+              id: apparel.id.toString(),
+              name: apparel.name,
+              category: apparel.category,
+              size: apparel.size,
+              price: apparel.price.toString(),
+              fabricIds: apparel.fabricIds.map((id) => id.toString()),
+            }
+          : null,
+        fabric: fabricDetails
+          ? {
+              ...fabricDetails,
+              id: fabricDetails.id.toString(),
+              timestamp: fabricDetails.timestamp.toString(),
+              price: fabricDetails.price.toString(),
+              rawMaterialIds: fabricDetails.rawMaterialIds.map((id) => id.toString()),
+            }
+          : null,
+        rawMaterial: rawMaterialDetails
+          ? {
+              ...rawMaterialDetails,
+              id: rawMaterialDetails.id.toString(),
+              quantity: rawMaterialDetails.quantity.toString(),
+              price: rawMaterialDetails.price.toString(),
+              timestamp: rawMaterialDetails.timestamp.toString(),
+            }
+          : null,
       }
 
-      const qrCodeData = await uploadJsonDirect(data)
+      // Upload to IPFS
+      const qrCodeData = await uploadJsonDirect(minimalData)
 
-      // Prepare the contract call
+      // Prepare contract call
       const transaction = await prepareContractCall({
         contract,
         method: 'function addPackagedStock(string qrCode, uint256[] apparelIds, string name, uint256 quantity, uint256 price)',
         params: [qrCodeData.cid, apparelIds, name, BigInt(quantityValue), priceInWei],
       })
 
-      // Send the transaction
       const tx = await sendTx(transaction)
 
-      // Check transaction success
       if (tx.transactionHash) {
         toast.success('Packaged stock created successfully!', {
           description: `Your new packaged stock "${name}" has been created`,
@@ -210,7 +261,6 @@ export default function AddForShippingPage() {
         setPrice('')
         setSelectedApparel('')
 
-        // Navigate back to distributor dashboard
         router.push('/distributor')
       } else {
         throw new Error('Transaction failed')

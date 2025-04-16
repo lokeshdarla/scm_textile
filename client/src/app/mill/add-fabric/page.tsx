@@ -191,28 +191,20 @@ export default function AddFabricPage() {
 
       const rawMaterial = filteredRawMaterials.find((rawMaterial) => rawMaterial.id === rawMaterialIds[0])
 
-      // Convert BigInt values to strings for JSON serialization
-      const serializedRawMaterial = rawMaterial
-        ? {
-            ...rawMaterial,
-            id: rawMaterial.id.toString(),
-            timestamp: rawMaterial.timestamp.toString(),
-            quantity: rawMaterial.quantity.toString(),
-            price: rawMaterial.price.toString(),
-          }
-        : null
-
-      const data = {
+      // Create a minimal data object for IPFS upload
+      const minimalData = {
         name: name,
-        rawMaterial: serializedRawMaterial,
         composition: composition,
         price: price,
+        rawMaterialId: rawMaterial?.id.toString() || '',
+        rawMaterialName: rawMaterial?.name || '',
+        rawMaterialType: rawMaterial?.rawMaterialType || '',
         timestamp: new Date().toISOString(),
       }
 
-      console.log(data)
+      console.log(minimalData)
 
-      const qrCodeData = await uploadJsonDirect(data)
+      const qrCodeData = await uploadJsonDirect(minimalData)
 
       // Prepare the contract call
       const transaction = await prepareContractCall({

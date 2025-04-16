@@ -141,6 +141,20 @@ export default function AddProductPage() {
     try {
       const fabricDetail = purchasedFabrics.find((fabric) => fabric.id.toString() === BigInt(selectedFabric).toString())
 
+      const rawMaterialIds = fabricDetail?.rawMaterialIds.map((id) => id.toString())
+      let rawMaterialId = BigInt(0)
+      if (!rawMaterialIds) {
+        console.log('No raw materials found for the selected fabric')
+      } else {
+        rawMaterialId = BigInt(rawMaterialIds[0])
+      }
+      const rawMaterialDetails = await readContract({
+        contract,
+        method:
+          'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price, bool isUsedForFabric))',
+        params: [rawMaterialId],
+      })
+
       // Convert BigInt values to strings for JSON serialization
       const serializedFabricDetail = fabricDetail
         ? {
@@ -152,12 +166,23 @@ export default function AddProductPage() {
           }
         : null
 
+      const serializedRawMaterialDetails = rawMaterialDetails
+        ? {
+            ...rawMaterialDetails,
+            id: rawMaterialDetails.id.toString(),
+            quantity: rawMaterialDetails.quantity.toString(),
+            price: rawMaterialDetails.price.toString(),
+            timestamp: rawMaterialDetails.timestamp.toString(),
+          }
+        : null
+
       const data = {
         name: name,
         category: category,
         size: size,
         price: price,
         fabric: serializedFabricDetail,
+        rawMaterial: serializedRawMaterialDetails,
       }
 
       const qrCodeData = await uploadJsonDirect(data)

@@ -35,6 +35,49 @@ interface PackagedStock {
   isUsedForRetailProduct: boolean
 }
 
+interface Apparel {
+  id: bigint
+  manufacturer: string
+  distributor: string
+  qrCode: string
+  fabricIds: readonly bigint[]
+  isAvailable: boolean
+  timestamp: bigint
+  name: string
+  category: string
+  size: string
+  price: bigint
+  isUsedForPackagedStock: boolean
+}
+
+interface Fabric {
+  id: bigint
+  mill: string
+  manufacturer: string
+  qrCode: string
+  rawMaterialIds: readonly bigint[]
+  isAvailable: boolean
+  timestamp: bigint
+  name: string
+  composition: string
+  price: bigint
+  isUsedForApparel: boolean
+}
+
+interface RawMaterial {
+  id: bigint
+  farmer: string
+  mill: string
+  qrCode: string
+  isAvailable: boolean
+  timestamp: bigint
+  name: string
+  rawMaterialType: string
+  quantity: bigint
+  price: bigint
+  isUsedForFabric: boolean
+}
+
 export default function AddForSalePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -115,6 +158,21 @@ export default function AddForSalePage() {
     setSelectedStock(stockId)
   }
 
+  function convertBigIntsToStrings(obj: any): any {
+    if (typeof obj === 'bigint') {
+      return obj.toString()
+    } else if (Array.isArray(obj)) {
+      return obj.map(convertBigIntsToStrings)
+    } else if (typeof obj === 'object' && obj !== null) {
+      const converted: any = {}
+      for (const key in obj) {
+        converted[key] = convertBigIntsToStrings(obj[key])
+      }
+      return converted
+    }
+    return obj
+  }
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -147,30 +205,86 @@ export default function AddForSalePage() {
 
       // Find the selected packaged stock details
       const packagedStockDetails = filteredStocks.find((stock) => stock.id.toString() === selectedStock)
+      const apparelIds = packagedStockDetails?.apparelIds
+      const apparelId = apparelIds?.[0] ? apparelIds[0] : BigInt(0)
+      const apparelDetails: Apparel = await readContract({
+        contract,
+        method:
+          'function getApparel(uint256 apparelId) view returns ((uint256 id, address manufacturer, address distributor, string qrCode, uint256[] fabricIds, bool isAvailable, uint256 timestamp, string name, string category, string size, uint256 price, bool isUsedForPackagedStock))',
+        params: [apparelId],
+      })
+
+      const fabricId = apparelDetails?.fabricIds?.[0] ? apparelDetails.fabricIds[0] : BigInt(0)
+      const fabricDetails: Fabric = await readContract({
+        contract,
+        method:
+          'function getFabric(uint256 fabricId) view returns ((uint256 id, address mill, address manufacturer, string qrCode, uint256[] rawMaterialIds, bool isAvailable, uint256 timestamp, string name, string composition, uint256 price,bool isUsedForApparel))',
+        params: [fabricId],
+      })
+
+      const rawMaterialId = fabricDetails?.rawMaterialIds?.[0] ? fabricDetails.rawMaterialIds[0] : BigInt(0)
+      const rawMaterialDetails: RawMaterial = await readContract({
+        contract,
+        method:
+          'function getRawMaterial(uint256 rawMaterialId) view returns ((uint256 id, address farmer, address mill, string qrCode, bool isAvailable, uint256 timestamp, string name, string rawMaterialType, uint256 quantity, uint256 price, bool isUsedForFabric))',
+        params: [rawMaterialId],
+      })
+
+      console.log(rawMaterialDetails)
+
+      console.log(apparelDetails)
 
       if (!packagedStockDetails) {
         throw new Error('Selected packaged stock not found')
       }
 
-      // Create data object for QR code with proper serialization of BigInt values
-      const data = {
+      // Create a minimal data object for IPFS upload
+      const minimalData = convertBigIntsToStrings({
         name: name,
         brand: brand,
         price: price,
-        packagedStock: {
-          id: packagedStockDetails.id.toString(),
-          name: packagedStockDetails.name,
-          quantity: packagedStockDetails.quantity.toString(),
-          price: packagedStockDetails.price.toString(),
-          qrCode: packagedStockDetails.qrCode,
-          timestamp: packagedStockDetails.timestamp.toString(),
-          apparelIds: packagedStockDetails.apparelIds.map((id) => id.toString()),
-        },
         timestamp: new Date().toISOString(),
-      }
+        packagedStock: {
+          ...packagedStockDetails,
+          id: packagedStockDetails.id.toString(),
+          timestamp: packagedStockDetails.timestamp.toString(),
+          quantity: packagedStockDetails.quantity.toString(),
+          apparelIds: packagedStockDetails.apparelIds.map((id) => id.toString()),
+          price: parseEther(packagedStockDetails.price.toString()),
+        },
+        apparel: apparelDetails
+          ? {
+              id: apparelDetails.id.toString(),
+              name: apparelDetails.name,
+              category: apparelDetails.category,
+              size: apparelDetails.size,
+              price: apparelDetails.price.toString(),
+              fabricIds: apparelDetails.fabricIds.map((id) => id.toString()),
+              timestamp: apparelDetails.timestamp.toString(),
+            }
+          : null,
+        fabric: fabricDetails
+          ? {
+              ...fabricDetails,
+              id: fabricDetails.id.toString(),
+              timestamp: fabricDetails.timestamp.toString(),
+              price: fabricDetails.price.toString(),
+              rawMaterialIds: fabricDetails.rawMaterialIds.map((id) => id.toString()),
+            }
+          : null,
+        rawMaterial: rawMaterialDetails
+          ? {
+              ...rawMaterialDetails,
+              id: rawMaterialDetails.id.toString(),
+              quantity: rawMaterialDetails.quantity.toString(),
+              price: rawMaterialDetails.price.toString(),
+              timestamp: rawMaterialDetails.timestamp.toString(),
+            }
+          : null,
+      })
 
       // Upload data to IPFS and get CID
-      const qrCodeData = await uploadJsonDirect(data)
+      const qrCodeData = await uploadJsonDirect(minimalData)
 
       // Convert price to Wei (assuming price is in ETH)
       const priceInWei = parseEther(price)

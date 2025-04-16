@@ -42,12 +42,10 @@ export default function RetailProductsPage() {
         params: [],
       })
 
-      // if (!retailProductIds || retailProductIds.length === 0) {
-      //   setRetailProducts([])
-      //   return
-      // }
-
-      retailProductIds = [BigInt(1), BigInt(2), BigInt(3), BigInt(4)]
+      if (!retailProductIds || retailProductIds.length === 0) {
+        setRetailProducts([])
+        return
+      }
 
       // Fetch details for each retail product
       const products: RetailProduct[] = []
